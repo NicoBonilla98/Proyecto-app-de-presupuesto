@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Presupuesto Hogar</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Presupuesto familiar en USD</p>
+        <h1>Presupuesto Hogar</h1>
+        <p class="intro">Controla ingresos, gastos, metas de ahorro e inversiones sin complicarte.</p>
+      </div>
+      <div class="period-control" aria-label="Periodo principal">
+        <span>Periodo</span>
+        <select id="periodSelect">
+          <option value="monthly" selected>Mensual</option>
+          <option value="biweekly">Quincenal</option>
+          <option value="weekly">Semanal</option>
+        </select>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <nav class="tab-nav" aria-label="Secciones principales">
+        <button type="button" class="tab-button active" data-tab-target="budgetTab">Presupuesto</button>
+        <button type="button" class="tab-button" data-tab-target="goalsTab">Compras futuras</button>
+        <button type="button" class="tab-button" data-tab-target="investmentsTab">Inversiones</button>
+        <button type="button" class="tab-button" data-tab-target="liquidityTab">Capacidad</button>
+        <button type="button" class="tab-button" data-tab-target="calendarTab">Calendario</button>
+      </nav>
+
+      <section id="budgetTab" class="tab-panel active">
+        <section class="summary-grid" aria-label="Resumen financiero">
+          <article class="metric income">
+            <span>Ingresos</span>
+            <strong id="incomeTotal">$0.00</strong>
+          </article>
+          <article class="metric expense">
+            <span>Gastos</span>
+            <strong id="expenseTotal">$0.00</strong>
+          </article>
+          <article class="metric balance">
+            <span>Disponible</span>
+            <strong id="balanceTotal">$0.00</strong>
+          </article>
+          <article class="metric savings">
+            <span>Ahorro sugerido</span>
+            <strong id="savingSuggestion">$0.00</strong>
+          </article>
+        </section>
+
+        <section class="workspace budget-entry-grid">
+          <form id="incomeForm" class="panel budget-entry income-entry">
+            <div class="panel-heading">
+              <h2>Ingresos</h2>
+              <p>Registra ingresos fijos, variables o unicos.</p>
+            </div>
+
+            <input type="hidden" id="incomeEditId" />
+            <input type="hidden" id="incomeEditMode" />
+
+            <label>
+              Tipo de ingreso
+              <select id="incomeType" required>
+                <option value="fixed">Ingreso fijo</option>
+                <option value="variable">Ingreso variable</option>
+                <option value="unique">Ingreso unico</option>
+              </select>
+            </label>
+
+            <label>
+              Descripcion
+              <input id="incomeDescription" type="text" placeholder="Ej. salario, bono, venta" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Monto USD
+                <input id="incomeAmount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <label id="incomeDateField">
+                Fecha
+                <input id="incomeDate" type="date" required />
+              </label>
+            </div>
+
+            <div id="incomeFixedFields" class="form-row">
+              <label>
+                Repeticion
+                <select id="incomeFrequency">
+                  <option value="weekly" selected>Semanal</option>
+                  <option value="monthly">Mensual</option>
+                </select>
+              </label>
+              <label>
+                Aplicar desde
+                <input id="incomeStartDate" type="date" />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary">Guardar ingreso</button>
+              <button type="button" id="cancelIncomeEdit" class="ghost">Cancelar</button>
+            </div>
+
+            <div class="embedded-list">
+              <div class="panel-heading compact">
+                <h3>Ingresos del periodo</h3>
+                <p id="incomePeriodLabel">Resumen actual.</p>
+              </div>
+              <div id="incomePeriodList" class="item-list"></div>
+            </div>
+          </form>
+
+          <form id="expenseForm" class="panel budget-entry expense-entry">
+            <div class="panel-heading">
+              <h2>Gastos</h2>
+              <p>Registra gastos fijos, variables o unicos.</p>
+            </div>
+
+            <input type="hidden" id="expenseEditId" />
+            <input type="hidden" id="expenseEditMode" />
+
+            <label>
+              Tipo de gasto
+              <select id="expenseType" required>
+                <option value="fixed">Gasto fijo</option>
+                <option value="variable">Gasto variable</option>
+                <option value="unique">Gasto unico</option>
+              </select>
+            </label>
+
+            <label>
+              Descripcion
+              <input id="expenseDescription" type="text" placeholder="Ej. arriendo, comida, emergencia" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Monto USD
+                <input id="expenseAmount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <label id="expenseDateField">
+                Fecha
+                <input id="expenseDate" type="date" required />
+              </label>
+            </div>
+
+            <div id="expenseFixedFields" class="form-row">
+              <label>
+                Repeticion
+                <select id="expenseFrequency">
+                  <option value="weekly" selected>Semanal</option>
+                  <option value="monthly">Mensual</option>
+                </select>
+              </label>
+              <label>
+                Aplicar desde
+                <input id="expenseStartDate" type="date" />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="danger">Guardar gasto</button>
+              <button type="button" id="cancelExpenseEdit" class="ghost">Cancelar</button>
+            </div>
+
+            <div class="embedded-list">
+              <div class="panel-heading compact">
+                <h3>Gastos del periodo</h3>
+                <p id="expensePeriodLabel">Resumen actual.</p>
+              </div>
+              <div id="expensePeriodList" class="item-list"></div>
+            </div>
+          </form>
+        </section>
+
+        <section id="budgetHealthBox" class="budget-health">
+          <strong id="budgetHealthTitle">Tus ahorros del mes son de:</strong>
+          <span id="budgetHealthAmount">$0.00</span>
+        </section>
+
+      </section>
+
+      <section id="goalsTab" class="tab-panel">
+        <section class="module-hero">
+          <div>
+            <p class="eyebrow">Planificacion de compras</p>
+            <h2>Compras futuras</h2>
+            <p>Define una meta, fecha objetivo y cuanto necesitas ahorrar cada mes.</p>
+          </div>
+        </section>
+
+        <section class="goals-layout">
+          <form id="goalForm" class="panel">
+            <div class="panel-heading">
+              <h2>Nueva compra futura</h2>
+              <p>Ahorro mensual calculado desde la fecha de inicio.</p>
+            </div>
+
+            <input type="hidden" id="goalId" />
+
+            <label>
+              Nombre de la meta
+              <input id="goalName" type="text" placeholder="Ej. laptop, viaje, refrigeradora" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Costo objetivo
+                <input id="goalTarget" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <label>
+                Ya ahorrado
+                <input id="goalSaved" type="number" min="0" step="0.01" placeholder="0.00" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Fecha de inicio
+                <input id="goalStartDate" type="date" required />
+              </label>
+              <label>
+                Fecha objetivo
+                <input id="goalTargetDate" type="date" required />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary">Guardar meta</button>
+              <button type="button" id="cancelGoalEdit" class="ghost">Cancelar</button>
+            </div>
+          </form>
+
+          <article class="panel list-panel">
+            <div class="panel-heading">
+              <h2>Metas y calendario</h2>
+              <p>Seguimiento de compras futuras y ahorro recomendado.</p>
+            </div>
+            <div id="goalList" class="item-list"></div>
+          </article>
+        </section>
+      </section>
+
+      <section id="investmentsTab" class="tab-panel">
+        <section id="investmentAlerts" class="alert-list" aria-live="polite"></section>
+
+        <section class="summary-grid investments-summary" aria-label="Resumen de inversiones">
+          <article class="metric investment">
+            <span>Capital invertido</span>
+            <strong id="investmentPrincipalTotal">$0.00</strong>
+          </article>
+          <article class="metric investment">
+            <span>Monto final estimado</span>
+            <strong id="investmentFinalTotal">$0.00</strong>
+          </article>
+          <article class="metric investment">
+            <span>Interes estimado</span>
+            <strong id="investmentInterestTotal">$0.00</strong>
+          </article>
+          <article class="metric investment due">
+            <span>Proximo vencimiento</span>
+            <strong id="nextInvestmentDue">Sin datos</strong>
+          </article>
+        </section>
+
+        <section class="workspace investments-workspace">
+          <form id="investmentForm" class="panel">
+            <div class="panel-heading">
+              <h2>Nueva inversion</h2>
+              <p>Registra banco, plazo, tasa y calcula el monto final.</p>
+            </div>
+
+            <input type="hidden" id="investmentId" />
+
+            <label>
+              Nombre para identificar
+              <input id="investmentAlias" type="text" placeholder="Ej. ahorro casa, emergencia, universidad" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Banco o entidad
+                <input id="investmentBank" type="text" placeholder="Ej. Banco Pichincha" required />
+              </label>
+              <label>
+                Producto
+                <select id="investmentProductType" required>
+                  <option value="policy">Poliza</option>
+                  <option value="programmed_savings">Cuenta de ahorro programado</option>
+                  <option value="flexible_savings">Cuenta de ahorro flexible</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Monto invertido
+                <input id="investmentPrincipal" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <label>
+                Tasa de interes anual %
+                <input id="investmentRate" type="number" min="0" step="0.01" placeholder="Ej. 8.5" required />
+              </label>
+            </div>
+
+            <label id="monthlyContributionField" class="is-hidden">
+              Abono mensual
+              <input id="investmentMonthlyContribution" type="number" min="0" step="0.01" placeholder="Ej. 50.00" />
+            </label>
+
+            <div class="form-row is-hidden">
+              <label>
+                La tasa es
+                <select id="investmentRatePeriod">
+                  <option value="annual" selected>Anual</option>
+                </select>
+              </label>
+              <label>
+                Tipo de calculo
+                <select id="investmentInterestType">
+                  <option value="simple" selected>Interes simple</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Fecha de inicio
+                <input id="investmentStartDate" type="date" required />
+              </label>
+              <label>
+                Fecha de finalizacion
+                <input id="investmentEndDate" type="date" required />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button type="submit" class="primary">Guardar inversion</button>
+              <button type="button" id="cancelInvestmentEdit" class="ghost">Cancelar</button>
+            </div>
+          </form>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Seguimiento</h2>
+              <p>Las inversiones vencidas se marcan automaticamente segun la fecha actual.</p>
+            </div>
+            <div class="filter-grid" aria-label="Filtros de seguimiento">
+              <label>
+                Mes de vencimiento
+                <input id="investmentMonthFilter" type="month" />
+              </label>
+              <label>
+                Nombre
+                <input id="investmentNameFilter" type="search" placeholder="Buscar por nombre" />
+              </label>
+              <label>
+                Banco
+                <input id="investmentBankFilter" type="search" placeholder="Buscar por banco" />
+              </label>
+            </div>
+            <div id="investmentList" class="item-list"></div>
+          </article>
+        </section>
+      </section>
+
+      <section id="calendarTab" class="tab-panel">
+        <section class="panel calendar-panel">
+          <div class="calendar-toolbar">
+            <div class="panel-heading">
+              <h2>Calendario financiero</h2>
+              <p>Visualiza ingresos, gastos y vencimientos de polizas por mes.</p>
+            </div>
+            <div class="calendar-controls">
+              <button type="button" id="previousCalendarMonth" class="ghost">Anterior</button>
+              <label>
+                Mes
+                <select id="calendarMonthSelect">
+                  <option value="0">Enero</option>
+                  <option value="1">Febrero</option>
+                  <option value="2">Marzo</option>
+                  <option value="3">Abril</option>
+                  <option value="4">Mayo</option>
+                  <option value="5">Junio</option>
+                  <option value="6">Julio</option>
+                  <option value="7">Agosto</option>
+                  <option value="8">Septiembre</option>
+                  <option value="9">Octubre</option>
+                  <option value="10">Noviembre</option>
+                  <option value="11">Diciembre</option>
+                </select>
+              </label>
+              <label>
+                Año
+                <input id="calendarYearInput" type="number" min="2000" max="2100" step="1" />
+              </label>
+              <button type="button" id="todayCalendarMonth" class="ghost">Hoy</button>
+              <button type="button" id="nextCalendarMonth" class="ghost">Siguiente</button>
+            </div>
+          </div>
+
+          <div class="calendar-legend" aria-label="Leyenda del calendario">
+            <span><i class="legend-dot income-dot"></i>Ingresos</span>
+            <span><i class="legend-dot expense-dot"></i>Gastos</span>
+            <span><i class="legend-dot policy-dot"></i>Inversiones</span>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>Lun</span>
+            <span>Mar</span>
+            <span>Mie</span>
+            <span>Jue</span>
+            <span>Vie</span>
+            <span>Sab</span>
+            <span>Dom</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid-month"></div>
+        </section>
+      </section>
+
+      <section id="liquidityTab" class="tab-panel">
+        <section class="module-hero">
+          <div>
+            <p class="eyebrow">Liquidez antes de invertir</p>
+            <h2>Capacidad de inversion</h2>
+            <p>Calcula cuanto dinero se puede invertir sin comprometer gastos futuros ni tu safety net.</p>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <form id="liquidityForm" class="panel">
+            <div class="panel-heading">
+              <h2>Configuracion</h2>
+              <p>Usa valores conservadores para evitar problemas de liquidez.</p>
+            </div>
+
+            <label>
+              Dinero disponible hoy
+              <input id="availableCash" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Meses a proyectar
+                <select id="projectionMonths">
+                  <option value="3">3 meses</option>
+                  <option value="6" selected>6 meses</option>
+                  <option value="12">12 meses</option>
+                </select>
+              </label>
+              <label>
+                Safety net
+                <select id="safetyMonths">
+                  <option value="1">1 mes</option>
+                  <option value="2" selected>2 meses</option>
+                  <option value="3">3 meses</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                <span class="label-with-help">
+                  Buffer gastos variables %
+                  <button
+                    type="button"
+                    class="help-button"
+                    aria-label="Ayuda sobre gastos variables"
+                    data-tooltip="Gastos variables son pagos que cambian cada mes, como comida, transporte, salidas, compras o imprevistos. El buffer agrega un margen extra para proyectar con cautela."
+                  >?</button>
+                </span>
+                <input id="variableExpenseBuffer" type="number" min="0" step="1" value="10" />
+              </label>
+              <label class="checkbox-label">
+                <input id="includeVariableIncome" type="checkbox" />
+                Contar ingresos variables
+              </label>
+            </div>
+
+            <button type="submit" class="primary">Calcular capacidad</button>
+          </form>
+
+          <article id="liquidityResult" class="panel liquidity-result">
+            <div class="panel-heading">
+              <h2>Recomendacion</h2>
+              <p id="liquidityStatus">Ingresa tu dinero disponible para calcular.</p>
+            </div>
+            <strong id="investmentCapacityAmount">$0.00</strong>
+            <dl class="liquidity-facts">
+              <div>
+                <dt>Safety net reservada</dt>
+                <dd id="safetyNetAmount">$0.00</dd>
+              </div>
+              <div>
+                <dt>Mes mas ajustado</dt>
+                <dd id="tightestMonthLabel">Sin datos</dd>
+              </div>
+              <div>
+                <dt>Gasto mensual base</dt>
+                <dd id="requiredExpenseAmount">$0.00</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
+        <section class="panel list-panel">
+          <div class="panel-heading">
+            <h2>Proyeccion mensual</h2>
+            <p>Balance estimado despues de ingresos, gastos, metas e inversiones que vencen.</p>
+          </div>
+          <div id="liquidityProjectionList" class="item-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <strong>Aun no hay datos</strong>
+        <span>Cuando guardes informacion, aparecera aqui.</span>
+      </div>
+    </template>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
