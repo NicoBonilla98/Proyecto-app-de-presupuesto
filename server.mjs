@@ -1,9 +1,11 @@
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { createServer } from "node:http";
 
 const port = Number(process.env.PORT || 4173);
 const root = resolve(".");
+const dataDir = resolve("data");
+const stateFile = join(dataDir, "budget-state.json");
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -21,6 +23,11 @@ function safePath(urlPath) {
 }
 
 createServer((request, response) => {
+  if (request.url?.startsWith("/api/state")) {
+    handleStateApi(request, response);
+    return;
+  }
+
   const filePath = safePath(request.url || "/");
 
   if (!filePath || !existsSync(filePath)) {
@@ -36,3 +43,42 @@ createServer((request, response) => {
 }).listen(port, () => {
   console.log(`Presupuesto Hogar disponible en http://localhost:${port}`);
 });
+
+function handleStateApi(request, response) {
+  if (request.method === "GET") {
+    response.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    response.end(readState());
+    return;
+  }
+
+  if (request.method === "PUT") {
+    let body = "";
+    request.on("data", (chunk) => {
+      body += chunk;
+      if (body.length > 2_000_000) {
+        request.destroy();
+      }
+    });
+    request.on("end", () => {
+      try {
+        JSON.parse(body);
+        mkdirSync(dataDir, { recursive: true });
+        writeFileSync(stateFile, body, "utf8");
+        response.writeHead(204);
+        response.end();
+      } catch {
+        response.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        response.end(JSON.stringify({ error: "Estado invalido" }));
+      }
+    });
+    return;
+  }
+
+  response.writeHead(405, { "Allow": "GET, PUT" });
+  response.end();
+}
+
+function readState() {
+  if (!existsSync(stateFile)) return "{}";
+  return readFileSync(stateFile, "utf8");
+}

@@ -81,7 +81,7 @@ El modulo calcula cuanto dinero se podria invertir sin comprometer liquidez futu
 
 ## Raspberry Pi
 
-Opcion simple con Node.js:
+Opcion recomendada con Node.js:
 
 1. Copia esta carpeta a la Raspberry Pi.
 2. Instala Node.js si aun no esta instalado.
@@ -97,10 +97,17 @@ PORT=4173 node server.mjs
 http://IP_DE_LA_RASPBERRY:4173
 ```
 
-Opcion recomendada para uso permanente:
+El servidor Node guarda los datos centrales en:
 
-- Servir los archivos estaticos con Nginx.
-- Mantener copias de seguridad del navegador o migrar a una base de datos cuando quieras usar varios dispositivos.
+```text
+data/budget-state.json
+```
+
+Opcion para uso permanente:
+
+- Crear un servicio `systemd` para `server.mjs`.
+- Usar Nginx como proxy hacia `http://127.0.0.1:4173`.
+- Hacer respaldo periodico de `data/budget-state.json`.
 
 ## Proximos pasos DevOps
 

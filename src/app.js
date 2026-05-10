@@ -135,6 +135,7 @@ updateBudgetFormFields("income");
 updateBudgetFormFields("expense");
 updateInvestmentProductFields();
 render();
+hydrateServerState();
 
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
@@ -1001,6 +1002,7 @@ function loadState() {
 
 function persist() {
   localStorage.setItem(storageKey, JSON.stringify(state));
+  saveServerState();
 }
 
 function emptyState(message = "") {
@@ -1083,4 +1085,46 @@ function addDaysIso(date, days) {
   const value = new Date(`${date}T00:00:00`);
   value.setDate(value.getDate() + days);
   return toIsoDate(value);
+}
+
+async function hydrateServerState() {
+  try {
+    const response = await fetch("/api/state");
+    if (!response.ok) return;
+    const serverState = await response.json();
+    if (!serverState || Object.keys(serverState).length === 0) return;
+    Object.assign(state, {
+      ...state,
+      ...serverState,
+      liquiditySettings: {
+        ...state.liquiditySettings,
+        ...(serverState.liquiditySettings || {})
+      }
+    });
+    syncControlsFromState();
+    render();
+  } catch {
+    // Static hosting fallback: localStorage remains the persistence layer.
+  }
+}
+
+async function saveServerState() {
+  try {
+    await fetch("/api/state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state)
+    });
+  } catch {
+    // If the API is not available, localStorage already has the latest state.
+  }
+}
+
+function syncControlsFromState() {
+  elements.periodSelect.value = state.period;
+  elements.availableCash.value = state.liquiditySettings.availableCash || "";
+  elements.projectionMonths.value = state.liquiditySettings.projectionMonths;
+  elements.safetyMonths.value = state.liquiditySettings.safetyMonths;
+  elements.variableExpenseBuffer.value = state.liquiditySettings.variableExpenseBuffer;
+  elements.includeVariableIncome.checked = state.liquiditySettings.includeVariableIncome;
 }
