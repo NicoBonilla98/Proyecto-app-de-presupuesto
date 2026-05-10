@@ -160,6 +160,14 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     months,
     monthlyContribution
   });
+  const calculatedInterest = Math.max(productResult.finalAmount - principal - productResult.totalContributions, 0);
+  const expectedInterest = Number(investment.expectedInterest);
+  const hasExpectedInterest =
+    investment.expectedInterest !== undefined &&
+    investment.expectedInterest !== "" &&
+    Number.isFinite(expectedInterest) &&
+    expectedInterest >= 0;
+  const interest = hasExpectedInterest ? expectedInterest : calculatedInterest;
 
   return {
     productType,
@@ -170,8 +178,9 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     months,
     monthlyContribution,
     totalContributions: productResult.totalContributions,
-    finalAmount: productResult.finalAmount,
-    interest: Math.max(productResult.finalAmount - principal - productResult.totalContributions, 0),
+    finalAmount: principal + productResult.totalContributions + interest,
+    interest,
+    calculatedInterest,
     calculationLabel: productResult.calculationLabel,
     status: investmentStatus(start, end, now),
     daysRemaining: Math.ceil((end.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))

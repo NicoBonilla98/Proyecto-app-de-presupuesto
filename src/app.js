@@ -26,6 +26,7 @@ let isSavingServerState = false;
 let pendingServerSave = false;
 let syncRetryTimer = null;
 let lastSyncedFingerprint = "";
+let investmentInterestEdited = false;
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -112,6 +113,7 @@ const elements = {
   investmentInterestType: document.querySelector("#investmentInterestType"),
   investmentStartDate: document.querySelector("#investmentStartDate"),
   investmentEndDate: document.querySelector("#investmentEndDate"),
+  investmentExpectedInterest: document.querySelector("#investmentExpectedInterest"),
   investmentMonthFilter: document.querySelector("#investmentMonthFilter"),
   investmentNameFilter: document.querySelector("#investmentNameFilter"),
   investmentBankFilter: document.querySelector("#investmentBankFilter"),
@@ -144,6 +146,7 @@ elements.periodSelect.value = state.period;
 updateBudgetFormFields("income");
 updateBudgetFormFields("expense");
 updateInvestmentProductFields();
+updateInvestmentExpectedInterest({ force: true });
 render();
 hydrateServerState();
 setInterval(syncFromServer, syncRefreshDelay);
@@ -221,6 +224,7 @@ elements.investmentForm.addEventListener("submit", (event) => {
     principal: Number(elements.investmentPrincipal.value),
     rate: Number(elements.investmentRate.value),
     monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    expectedInterest: Number(elements.investmentExpectedInterest.value || 0),
     ratePeriod: elements.investmentRatePeriod.value,
     interestType: elements.investmentInterestType.value,
     startDate: elements.investmentStartDate.value,
@@ -229,6 +233,12 @@ elements.investmentForm.addEventListener("submit", (event) => {
   const dateValidation = validateDateWindow(investment.startDate, investment.endDate);
 
   if (!investment.alias || !investment.bank || !investment.name || investment.principal <= 0) return;
+  if (!Number.isFinite(investment.expectedInterest) || investment.expectedInterest < 0) {
+    elements.investmentExpectedInterest.setCustomValidity("Ingresa un interes valido.");
+    elements.investmentExpectedInterest.reportValidity();
+    return;
+  }
+  elements.investmentExpectedInterest.setCustomValidity("");
   if (investment.productType === "programmed_savings" && investment.monthlyContribution <= 0) {
     elements.investmentMonthlyContribution.setCustomValidity("Ingresa el monto mensual que se abonara.");
     elements.investmentMonthlyContribution.reportValidity();
@@ -249,9 +259,32 @@ elements.investmentForm.addEventListener("submit", (event) => {
 });
 
 elements.cancelInvestmentEdit.addEventListener("click", resetInvestmentForm);
-elements.investmentStartDate.addEventListener("change", clearInvestmentDateValidation);
-elements.investmentEndDate.addEventListener("change", clearInvestmentDateValidation);
-elements.investmentProductType.addEventListener("change", updateInvestmentProductFields);
+elements.investmentStartDate.addEventListener("change", () => {
+  clearInvestmentDateValidation();
+  updateInvestmentExpectedInterest();
+});
+elements.investmentEndDate.addEventListener("change", () => {
+  clearInvestmentDateValidation();
+  updateInvestmentExpectedInterest();
+});
+elements.investmentProductType.addEventListener("change", () => {
+  updateInvestmentProductFields();
+  updateInvestmentExpectedInterest();
+});
+[
+  elements.investmentPrincipal,
+  elements.investmentRate,
+  elements.investmentMonthlyContribution,
+  elements.investmentRatePeriod,
+  elements.investmentInterestType
+].forEach((input) => {
+  input.addEventListener("input", () => updateInvestmentExpectedInterest());
+  input.addEventListener("change", () => updateInvestmentExpectedInterest());
+});
+elements.investmentExpectedInterest.addEventListener("input", () => {
+  investmentInterestEdited = true;
+  elements.investmentExpectedInterest.setCustomValidity("");
+});
 elements.investmentMonthFilter.addEventListener("input", renderInvestments);
 elements.investmentNameFilter.addEventListener("input", renderInvestments);
 elements.investmentBankFilter.addEventListener("input", renderInvestments);
@@ -867,11 +900,13 @@ function editInvestment(id) {
   elements.investmentPrincipal.value = investment.principal;
   elements.investmentRate.value = investment.rate;
   elements.investmentMonthlyContribution.value = investment.monthlyContribution || "";
+  elements.investmentExpectedInterest.value = investment.expectedInterest ?? calculateInvestment(investment).interest.toFixed(2);
   elements.investmentRatePeriod.value = investment.ratePeriod;
   elements.investmentInterestType.value = investment.interestType;
   elements.investmentStartDate.value = investment.startDate;
   elements.investmentEndDate.value = investment.endDate;
   elements.investmentAlias.focus();
+  investmentInterestEdited = Boolean(investment.expectedInterest !== undefined && investment.expectedInterest !== "");
   updateInvestmentProductFields();
 }
 
@@ -919,11 +954,15 @@ function resetInvestmentForm() {
   elements.investmentMonthlyContribution.setCustomValidity("");
   elements.investmentProductType.value = "policy";
   elements.investmentMonthlyContribution.value = "";
+  elements.investmentExpectedInterest.value = "";
+  elements.investmentExpectedInterest.setCustomValidity("");
   elements.investmentRatePeriod.value = "annual";
   elements.investmentInterestType.value = "simple";
   elements.investmentStartDate.value = todayIso();
   elements.investmentEndDate.value = todayIso();
+  investmentInterestEdited = false;
   updateInvestmentProductFields();
+  updateInvestmentExpectedInterest({ force: true });
 }
 
 function clearGoalDateValidation() {
@@ -941,6 +980,26 @@ function updateInvestmentProductFields() {
   elements.investmentMonthlyContribution.setCustomValidity("");
   elements.investmentRatePeriod.value = "annual";
   elements.investmentInterestType.value = "simple";
+}
+
+function updateInvestmentExpectedInterest(options = {}) {
+  if (!options.force && investmentInterestEdited && elements.investmentExpectedInterest.value !== "") {
+    return;
+  }
+
+  const result = calculateInvestment({
+    productType: elements.investmentProductType.value,
+    principal: Number(elements.investmentPrincipal.value || 0),
+    rate: Number(elements.investmentRate.value || 0),
+    monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    ratePeriod: elements.investmentRatePeriod.value,
+    interestType: elements.investmentInterestType.value,
+    startDate: elements.investmentStartDate.value,
+    endDate: elements.investmentEndDate.value
+  });
+
+  elements.investmentExpectedInterest.value = formatNumberInput(result.calculatedInterest ?? result.interest);
+  elements.investmentExpectedInterest.setCustomValidity("");
 }
 
 function removeItem(collection, id) {
@@ -1088,6 +1147,10 @@ function productLabel(productType = "policy") {
 
 function formatPercent(value) {
   return `${(value * 100).toFixed(2)}%`;
+}
+
+function formatNumberInput(value) {
+  return Number.isFinite(value) ? value.toFixed(2) : "0.00";
 }
 
 function formatDate(date) {

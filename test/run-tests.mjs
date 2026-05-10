@@ -148,6 +148,27 @@ const tests = [
     }
   },
   {
+    name: "usa interes negociado cuando se ingresa manualmente",
+    run() {
+      const result = calculateInvestment(
+        {
+          principal: 1000,
+          rate: 12,
+          expectedInterest: 150,
+          ratePeriod: "annual",
+          interestType: "simple",
+          startDate: "2026-01-01",
+          endDate: "2027-01-01"
+        },
+        "2026-06-01"
+      );
+
+      assert.equal(result.calculatedInterest, 120);
+      assert.equal(result.interest, 150);
+      assert.equal(result.finalAmount, 1150);
+    }
+  },
+  {
     name: "resume inversiones y proximo vencimiento",
     run() {
       const summary = summarizeInvestments(
