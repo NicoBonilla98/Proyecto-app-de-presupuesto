@@ -303,6 +303,14 @@ select {
   margin-bottom: 1rem;
 }
 
+.investments-workspace {
+  align-items: start;
+}
+
+.investments-workspace > .panel {
+  align-self: start;
+}
+
 .content-grid {
   grid-template-columns: 1.05fr 0.95fr;
 }
