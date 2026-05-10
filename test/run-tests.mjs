@@ -14,6 +14,7 @@ import {
   calculateSafetyNet,
   estimateMonthlyVariableCashflow
 } from "../src/liquidity.js";
+import { createId } from "../src/ids.js";
 
 const tests = [
   {
@@ -280,6 +281,21 @@ const tests = [
 
       assert.equal(estimate.monthlyVariableExpenses, 165);
       assert.equal(estimate.monthlyVariableIncome, 0);
+    }
+  },
+  {
+    name: "genera ids aunque randomUUID no exista en intranet",
+    run() {
+      const id = createId({
+        getRandomValues(values) {
+          values[0] = 123;
+          values[1] = 456;
+          return values;
+        }
+      });
+
+      assert.ok(id.endsWith("-3f-co"));
+      assert.equal(typeof createId(undefined), "string");
     }
   },
   {

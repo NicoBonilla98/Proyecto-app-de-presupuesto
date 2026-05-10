@@ -14,6 +14,7 @@ import {
   todayIso,
   validateDateWindow
 } from "./finance.js";
+import { createId } from "./ids.js";
 import { calculateInvestmentCapacity } from "./liquidity.js";
 
 const storageKey = "presupuesto-hogar:v1";
@@ -167,7 +168,7 @@ elements.goalForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const goal = {
-    id: elements.goalId.value || crypto.randomUUID(),
+    id: elements.goalId.value || createId(),
     name: elements.goalName.value.trim(),
     target: Number(elements.goalTarget.value),
     saved: Number(elements.goalSaved.value || 0),
@@ -198,7 +199,7 @@ elements.investmentForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const investment = {
-    id: elements.investmentId.value || crypto.randomUUID(),
+    id: elements.investmentId.value || createId(),
     alias: elements.investmentAlias.value.trim(),
     bank: elements.investmentBank.value.trim(),
     productType: elements.investmentProductType.value,
@@ -311,7 +312,7 @@ function handleBudgetSubmit(event, kind) {
 
   if (type === "fixed") {
     const fixedItem = {
-      id: editId || crypto.randomUUID(),
+      id: editId || createId(),
       kind,
       frequency: elements[`${kind}Frequency`].value,
       description,
@@ -333,7 +334,7 @@ function handleBudgetSubmit(event, kind) {
     }
   } else {
     const transaction = {
-      id: editMode === "transaction" && editId ? editId : crypto.randomUUID(),
+      id: editMode === "transaction" && editId ? editId : createId(),
       kind,
       category: type,
       description,
@@ -956,7 +957,7 @@ function versionFixedItem(updatedItem) {
   oldItem.endDate = addDaysIso(updatedItem.startDate, -1);
   state.fixedItems.unshift({
     ...updatedItem,
-    id: crypto.randomUUID(),
+    id: createId(),
     previousVersionId: oldItem.id
   });
 }
