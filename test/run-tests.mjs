@@ -15,6 +15,7 @@ import {
   estimateMonthlyVariableCashflow
 } from "../src/liquidity.js";
 import { createId } from "../src/ids.js";
+import { hasStoredRecords, mergeStateCopies } from "../src/state-sync.js";
 
 const tests = [
   {
@@ -296,6 +297,79 @@ const tests = [
 
       assert.ok(id.endsWith("-3f-co"));
       assert.equal(typeof createId(undefined), "string");
+    }
+  },
+  {
+    name: "reconcilia estado local con servidor vacio sin perder presupuesto",
+    run() {
+      const localState = {
+        transactions: [{ id: "tx-local", description: "Ingreso local" }],
+        fixedItems: [{ id: "fixed-local", description: "Sueldo" }],
+        goals: [],
+        investments: [{ id: "investment-local", alias: "Poliza" }],
+        liquiditySettings: { availableCash: 100 }
+      };
+      const serverState = {
+        transactions: [],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        liquiditySettings: { availableCash: 0 }
+      };
+      const merged = mergeStateCopies(localState, serverState);
+
+      assert.equal(merged.transactions.length, 1);
+      assert.equal(merged.fixedItems.length, 1);
+      assert.equal(merged.investments.length, 1);
+      assert.equal(merged.liquiditySettings.availableCash, 100);
+      assert.equal(hasStoredRecords(merged), true);
+    }
+  },
+  {
+    name: "reconcilia servidor con navegador nuevo",
+    run() {
+      const localState = {
+        transactions: [],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        liquiditySettings: { availableCash: 0 }
+      };
+      const serverState = {
+        transactions: [{ id: "tx-server", description: "Ingreso servidor" }],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        liquiditySettings: { availableCash: 250 }
+      };
+      const merged = mergeStateCopies(serverState, localState);
+
+      assert.equal(merged.transactions.length, 1);
+      assert.equal(merged.transactions[0].id, "tx-server");
+      assert.equal(merged.liquiditySettings.availableCash, 250);
+    }
+  },
+  {
+    name: "mantiene eliminaciones al reconciliar copias",
+    run() {
+      const merged = mergeStateCopies(
+        {
+          transactions: [],
+          fixedItems: [],
+          goals: [],
+          investments: [],
+          deletedItemIds: ["tx-deleted"]
+        },
+        {
+          transactions: [{ id: "tx-deleted", description: "No debe volver" }],
+          fixedItems: [],
+          goals: [],
+          investments: []
+        }
+      );
+
+      assert.equal(merged.transactions.length, 0);
+      assert.deepEqual(merged.deletedItemIds, ["tx-deleted"]);
     }
   },
   {

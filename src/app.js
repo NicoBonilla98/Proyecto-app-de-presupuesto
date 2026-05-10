@@ -16,8 +16,10 @@ import {
 } from "./finance.js";
 import { createId } from "./ids.js";
 import { calculateInvestmentCapacity } from "./liquidity.js";
+import { hasStoredRecords, mergeStateCopies } from "./state-sync.js";
 
 const storageKey = "presupuesto-hogar:v1";
+let hasSavedLocalState = Boolean(localStorage.getItem(storageKey));
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -933,8 +935,15 @@ function removeItem(collection, id) {
   const index = collection.findIndex((item) => item.id === id);
   if (index >= 0) {
     collection.splice(index, 1);
+    rememberDeletedItem(id);
     persist();
     render();
+  }
+}
+
+function rememberDeletedItem(id) {
+  if (!state.deletedItemIds.includes(id)) {
+    state.deletedItemIds.push(id);
   }
 }
 
@@ -978,6 +987,7 @@ function loadState() {
     goals: [],
     fixedItems: [],
     investments: [],
+    deletedItemIds: [],
     liquiditySettings: {
       availableCash: 0,
       projectionMonths: 6,
@@ -1002,8 +1012,13 @@ function loadState() {
 }
 
 function persist() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
+  persistLocalState();
   saveServerState();
+}
+
+function persistLocalState() {
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  hasSavedLocalState = true;
 }
 
 function emptyState(message = "") {
@@ -1093,17 +1108,20 @@ async function hydrateServerState() {
     const response = await fetch("/api/state");
     if (!response.ok) return;
     const serverState = await response.json();
-    if (!serverState || Object.keys(serverState).length === 0) return;
-    Object.assign(state, {
-      ...state,
-      ...serverState,
-      liquiditySettings: {
-        ...state.liquiditySettings,
-        ...(serverState.liquiditySettings || {})
-      }
-    });
+    if (!serverState || Object.keys(serverState).length === 0) {
+      if (hasStoredRecords(state)) saveServerState();
+      return;
+    }
+
+    const reconciledState = hasSavedLocalState
+      ? mergeStateCopies(state, serverState)
+      : mergeStateCopies(serverState, state);
+
+    Object.assign(state, reconciledState);
+    persistLocalState();
     syncControlsFromState();
     render();
+    saveServerState();
   } catch {
     // Static hosting fallback: localStorage remains the persistence layer.
   }
@@ -1112,7 +1130,7 @@ async function hydrateServerState() {
 async function saveServerState() {
   try {
     const latest = await readServerState();
-    const mergedState = mergeStateForSave(latest, state);
+    const mergedState = mergeStateCopies(state, latest);
     await fetch("/api/state", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1131,27 +1149,6 @@ async function readServerState() {
   } catch {
     return {};
   }
-}
-
-function mergeStateForSave(serverState, localState) {
-  return {
-    ...serverState,
-    ...localState,
-    transactions: preserveNonEmpty(localState.transactions, serverState.transactions),
-    fixedItems: preserveNonEmpty(localState.fixedItems, serverState.fixedItems),
-    goals: preserveNonEmpty(localState.goals, serverState.goals),
-    investments: preserveNonEmpty(localState.investments, serverState.investments),
-    liquiditySettings: {
-      ...(serverState.liquiditySettings || {}),
-      ...(localState.liquiditySettings || {})
-    }
-  };
-}
-
-function preserveNonEmpty(localValue, serverValue) {
-  return Array.isArray(localValue) && localValue.length === 0 && Array.isArray(serverValue) && serverValue.length > 0
-    ? serverValue
-    : localValue;
 }
 
 function syncControlsFromState() {
