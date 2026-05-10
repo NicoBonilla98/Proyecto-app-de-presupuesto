@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { createServer } from "node:http";
+import { mergeStateCopies } from "./src/state-sync.js";
 
 const port = Number(process.env.PORT || 4173);
 const root = resolve(".");
@@ -71,8 +72,9 @@ function handleStateApi(request, response) {
     request.on("end", () => {
       try {
         const parsedState = JSON.parse(body);
+        const currentState = readParsedState();
         const stateToSave = {
-          ...parsedState,
+          ...mergeStateCopies(parsedState, currentState),
           serverSavedAt: new Date().toISOString()
         };
         writeState(stateToSave);
@@ -96,6 +98,14 @@ function handleStateApi(request, response) {
 function readState() {
   if (!existsSync(stateFile)) return "{}";
   return readFileSync(stateFile, "utf8");
+}
+
+function readParsedState() {
+  try {
+    return JSON.parse(readState());
+  } catch {
+    return {};
+  }
 }
 
 function writeState(state) {

@@ -374,6 +374,60 @@ const tests = [
     }
   },
   {
+    name: "un dispositivo atrasado no revive datos eliminados del servidor",
+    run() {
+      const staleDeviceState = {
+        transactions: [{ id: "tx-deleted", description: "Dato viejo" }],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        deletedItemIds: []
+      };
+      const centralState = {
+        transactions: [],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        deletedItemIds: ["tx-deleted"]
+      };
+      const merged = mergeStateCopies(staleDeviceState, centralState);
+
+      assert.equal(merged.transactions.length, 0);
+      assert.deepEqual(merged.deletedItemIds, ["tx-deleted"]);
+    }
+  },
+  {
+    name: "mantiene la version mas reciente del mismo registro",
+    run() {
+      const staleDeviceState = {
+        fixedItems: [
+          {
+            id: "fixed-1",
+            description: "Sueldo",
+            amount: 100,
+            updatedAt: "2026-05-10T10:00:00.000Z"
+          }
+        ]
+      };
+      const centralState = {
+        fixedItems: [
+          {
+            id: "fixed-1",
+            description: "Sueldo detenido",
+            amount: 100,
+            endDate: "2026-05-09",
+            updatedAt: "2026-05-10T11:00:00.000Z"
+          }
+        ]
+      };
+      const merged = mergeStateCopies(staleDeviceState, centralState);
+
+      assert.equal(merged.fixedItems.length, 1);
+      assert.equal(merged.fixedItems[0].description, "Sueldo detenido");
+      assert.equal(merged.fixedItems[0].endDate, "2026-05-09");
+    }
+  },
+  {
     name: "verifica que la copia central tenga los registros compartidos",
     run() {
       const expected = {

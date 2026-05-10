@@ -62,18 +62,32 @@ export function stateFingerprint(state = {}) {
 
 function mergeCollections(primaryValue, secondaryValue, deletedItems) {
   const records = [];
-  const seen = new Set();
+  const indexes = new Map();
 
   for (const item of [...asArray(primaryValue), ...asArray(secondaryValue)]) {
     if (!item) continue;
     const key = item.id || JSON.stringify(item);
     if (deletedItems.has(key)) continue;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (indexes.has(key)) {
+      const index = indexes.get(key);
+      records[index] = pickNewestRecord(records[index], item);
+      continue;
+    }
+    indexes.set(key, records.length);
     records.push(item);
   }
 
   return records;
+}
+
+function pickNewestRecord(current, candidate) {
+  const currentTime = recordTime(current);
+  const candidateTime = recordTime(candidate);
+  return candidateTime > currentTime ? candidate : current;
+}
+
+function recordTime(item) {
+  return Date.parse(item?.updatedAt || item?.createdAt || "") || 0;
 }
 
 function asArray(value) {

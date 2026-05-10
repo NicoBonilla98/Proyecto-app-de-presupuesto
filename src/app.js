@@ -344,7 +344,7 @@ function handleBudgetSubmit(event, kind) {
     if (editMode === "fixed") {
       versionFixedItem(fixedItem);
     } else {
-      state.fixedItems.unshift(fixedItem);
+      state.fixedItems.unshift(stampRecord(fixedItem));
     }
   } else {
     const transaction = {
@@ -964,6 +964,7 @@ function stopFixedItem(id) {
   if (!fixedItem) return;
 
   fixedItem.endDate = addDaysIso(todayIso(), -1);
+  fixedItem.updatedAt = new Date().toISOString();
   persist();
   render();
 }
@@ -976,20 +977,31 @@ function versionFixedItem(updatedItem) {
   }
 
   oldItem.endDate = addDaysIso(updatedItem.startDate, -1);
-  state.fixedItems.unshift({
+  oldItem.updatedAt = new Date().toISOString();
+  state.fixedItems.unshift(stampRecord({
     ...updatedItem,
     id: createId(),
     previousVersionId: oldItem.id
-  });
+  }));
 }
 
 function upsert(collection, item) {
   const index = collection.findIndex((current) => current.id === item.id);
+  const nextItem = stampRecord(item, index >= 0 ? collection[index] : null);
   if (index >= 0) {
-    collection[index] = item;
+    collection[index] = nextItem;
   } else {
-    collection.unshift(item);
+    collection.unshift(nextItem);
   }
+}
+
+function stampRecord(item, previousItem = null) {
+  const now = new Date().toISOString();
+  return {
+    ...item,
+    createdAt: item.createdAt || previousItem?.createdAt || now,
+    updatedAt: now
+  };
 }
 
 function loadState() {
@@ -1139,6 +1151,10 @@ async function hydrateServerState() {
 
 async function syncFromServer() {
   if (isSavingServerState) return;
+  if (pendingServerSave) {
+    flushServerSave();
+    return;
+  }
 
   try {
     const serverState = await readServerState();
