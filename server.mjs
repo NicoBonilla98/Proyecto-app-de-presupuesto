@@ -37,7 +37,8 @@ createServer((request, response) => {
   }
 
   response.writeHead(200, {
-    "Content-Type": contentTypes[extname(filePath)] || "application/octet-stream"
+    "Content-Type": contentTypes[extname(filePath)] || "application/octet-stream",
+    "Cache-Control": "no-store"
   });
   createReadStream(filePath).pipe(response);
 }).listen(port, () => {
