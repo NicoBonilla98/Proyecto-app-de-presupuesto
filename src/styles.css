@@ -457,6 +457,38 @@ button.danger {
   font-size: 1rem;
 }
 
+.extra-contributions {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0.25rem 0 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.extra-contribution-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.extra-contribution-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.extra-contribution-item span,
+.mini-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .budget-health {
   display: flex;
   align-items: center;
@@ -911,6 +943,11 @@ button.danger {
 
   .tab-button {
     min-width: 0;
+  }
+
+  .extra-contribution-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .metric strong {

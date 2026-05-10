@@ -155,6 +155,7 @@ const tests = [
           principal: 1000,
           rate: 12,
           expectedInterest: 150,
+          expectedInterestManual: true,
           ratePeriod: "annual",
           interestType: "simple",
           startDate: "2026-01-01",
@@ -166,6 +167,28 @@ const tests = [
       assert.equal(result.calculatedInterest, 120);
       assert.equal(result.interest, 150);
       assert.equal(result.finalAmount, 1150);
+    }
+  },
+  {
+    name: "ignora interes sugerido cuando no fue editado manualmente",
+    run() {
+      const result = calculateInvestment(
+        {
+          principal: 1000,
+          rate: 12,
+          expectedInterest: 150,
+          expectedInterestManual: false,
+          ratePeriod: "annual",
+          interestType: "simple",
+          startDate: "2026-01-01",
+          endDate: "2027-01-01"
+        },
+        "2026-06-01"
+      );
+
+      assert.equal(result.calculatedInterest, 120);
+      assert.equal(result.interest, 120);
+      assert.equal(result.finalAmount, 1120);
     }
   },
   {
@@ -252,6 +275,30 @@ const tests = [
       assert.equal(result.totalContributions, 300);
       assert.ok(result.finalAmount > 1300);
       assert.ok(result.interest > 0);
+    }
+  },
+  {
+    name: "calcula aportes extraordinarios desde el dia exacto",
+    run() {
+      const result = calculateInvestment(
+        {
+          productType: "programmed_savings",
+          principal: 1000,
+          rate: 36.5,
+          monthlyContribution: 0,
+          extraContributions: [{ date: "2026-01-06", amount: 1000, note: "Bono" }],
+          ratePeriod: "annual",
+          interestType: "simple",
+          startDate: "2026-01-01",
+          endDate: "2026-01-11"
+        },
+        "2026-01-01"
+      );
+      const expectedFinalAmount = 1000 * 1.001 ** 10 + 1000 * 1.001 ** 5;
+
+      assert.equal(result.totalExtraContributions, 1000);
+      assert.ok(Math.abs(result.finalAmount - expectedFinalAmount) < 0.01);
+      assert.ok(result.interest > 15);
     }
   },
   {

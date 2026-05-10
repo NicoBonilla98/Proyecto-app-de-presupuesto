@@ -149,6 +149,7 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
   const monthlyRate = investment.ratePeriod === "monthly" ? rate : rate / 12;
   const months = Math.max(monthsBetween(start, end), 1);
   const dailyRate = annualRate / 365;
+  const extraContributions = normalizeExtraContributions(investment.extraContributions, start, end);
   const productResult = calculateInvestmentByProduct({
     productType,
     principal,
@@ -158,13 +159,17 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     years,
     days,
     months,
-    monthlyContribution
+    monthlyContribution,
+    extraContributions,
+    start,
+    end
   });
   const calculatedInterest = Math.max(productResult.finalAmount - principal - productResult.totalContributions, 0);
   const expectedInterest = Number(investment.expectedInterest);
   const hasExpectedInterest =
     investment.expectedInterest !== undefined &&
     investment.expectedInterest !== "" &&
+    investment.expectedInterestManual !== false &&
     Number.isFinite(expectedInterest) &&
     expectedInterest >= 0;
   const interest = hasExpectedInterest ? expectedInterest : calculatedInterest;
@@ -177,6 +182,8 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     days,
     months,
     monthlyContribution,
+    totalMonthlyContributions: productResult.totalMonthlyContributions,
+    totalExtraContributions: productResult.totalExtraContributions,
     totalContributions: productResult.totalContributions,
     finalAmount: principal + productResult.totalContributions + interest,
     interest,
@@ -274,24 +281,14 @@ function daysBetween(start, end) {
 
 function calculateInvestmentByProduct(input) {
   if (input.productType === "programmed_savings") {
-    let balance = input.principal;
-    let totalContributions = 0;
-
-    for (let month = 0; month < input.months; month += 1) {
-      balance = balance * (1 + input.monthlyRate) + input.monthlyContribution;
-      totalContributions += input.monthlyContribution;
-    }
-
-    return {
-      finalAmount: balance,
-      totalContributions,
-      calculationLabel: "Ahorro programado con interes compuesto mensual"
-    };
+    return calculateProgrammedSavings(input);
   }
 
   if (input.productType === "flexible_savings") {
     return {
       finalAmount: input.principal * (1 + input.dailyRate) ** input.days,
+      totalMonthlyContributions: 0,
+      totalExtraContributions: 0,
       totalContributions: 0,
       calculationLabel: "Ahorro flexible con interes compuesto diario"
     };
@@ -299,9 +296,85 @@ function calculateInvestmentByProduct(input) {
 
   return {
     finalAmount: input.principal * (1 + input.annualRate * input.years),
+    totalMonthlyContributions: 0,
+    totalExtraContributions: 0,
     totalContributions: 0,
     calculationLabel: "Poliza con interes fijo por la duracion"
   };
+}
+
+function calculateProgrammedSavings(input) {
+  let balance = input.principal;
+  let totalMonthlyContributions = 0;
+  let totalExtraContributions = 0;
+  const monthlyContributionDates = new Set(recurringMonthlyDates(input.start, input.end, input.months));
+  const extraContributionMap = groupExtraContributions(input.extraContributions);
+  const cursor = new Date(input.start);
+
+  while (cursor <= input.end) {
+    const date = toIso(cursor);
+    const extraContribution = extraContributionMap.get(date) || 0;
+
+    if (monthlyContributionDates.has(date)) {
+      balance += input.monthlyContribution;
+      totalMonthlyContributions += input.monthlyContribution;
+    }
+
+    if (extraContribution > 0) {
+      balance += extraContribution;
+      totalExtraContributions += extraContribution;
+    }
+
+    if (cursor < input.end) {
+      balance *= 1 + input.dailyRate;
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return {
+    finalAmount: balance,
+    totalMonthlyContributions,
+    totalExtraContributions,
+    totalContributions: totalMonthlyContributions + totalExtraContributions,
+    calculationLabel: "Ahorro programado con interes diario y aportes fechados"
+  };
+}
+
+function recurringMonthlyDates(start, end, months) {
+  const dates = [];
+
+  for (let month = 0; month < months; month += 1) {
+    const date = new Date(start);
+    date.setMonth(start.getMonth() + month);
+    if (date <= end) {
+      dates.push(toIso(date));
+    }
+  }
+
+  return dates;
+}
+
+function groupExtraContributions(extraContributions) {
+  return extraContributions.reduce((map, contribution) => {
+    map.set(contribution.date, (map.get(contribution.date) || 0) + contribution.amount);
+    return map;
+  }, new Map());
+}
+
+function normalizeExtraContributions(extraContributions = [], start, end) {
+  if (!Array.isArray(extraContributions)) return [];
+
+  return extraContributions
+    .map((contribution) => ({
+      date: contribution.date,
+      amount: Number(contribution.amount) || 0,
+      note: contribution.note || ""
+    }))
+    .filter((contribution) => {
+      const date = new Date(`${contribution.date}T00:00:00`);
+      return contribution.amount > 0 && !Number.isNaN(date.getTime()) && date >= start && date <= end;
+    });
 }
 
 function investmentStatus(start, end, now) {
@@ -319,6 +392,10 @@ function emptyInvestmentResult(principal) {
     months: 1,
     finalAmount: principal,
     interest: 0,
+    calculatedInterest: 0,
+    totalMonthlyContributions: 0,
+    totalExtraContributions: 0,
+    totalContributions: 0,
     status: "active",
     daysRemaining: 0
   };

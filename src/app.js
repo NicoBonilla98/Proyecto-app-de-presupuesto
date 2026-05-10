@@ -27,6 +27,7 @@ let pendingServerSave = false;
 let syncRetryTimer = null;
 let lastSyncedFingerprint = "";
 let investmentInterestEdited = false;
+let currentExtraContributions = [];
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -109,6 +110,12 @@ const elements = {
   investmentRate: document.querySelector("#investmentRate"),
   monthlyContributionField: document.querySelector("#monthlyContributionField"),
   investmentMonthlyContribution: document.querySelector("#investmentMonthlyContribution"),
+  extraContributionSection: document.querySelector("#extraContributionSection"),
+  extraContributionDate: document.querySelector("#extraContributionDate"),
+  extraContributionAmount: document.querySelector("#extraContributionAmount"),
+  extraContributionNote: document.querySelector("#extraContributionNote"),
+  addExtraContribution: document.querySelector("#addExtraContribution"),
+  extraContributionList: document.querySelector("#extraContributionList"),
   investmentRatePeriod: document.querySelector("#investmentRatePeriod"),
   investmentInterestType: document.querySelector("#investmentInterestType"),
   investmentStartDate: document.querySelector("#investmentStartDate"),
@@ -141,6 +148,7 @@ elements.goalStartDate.value = todayIso();
 elements.goalTargetDate.value = todayIso();
 elements.investmentStartDate.value = todayIso();
 elements.investmentEndDate.value = todayIso();
+elements.extraContributionDate.value = todayIso();
 elements.periodSelect.value = state.period;
 
 updateBudgetFormFields("income");
@@ -224,7 +232,9 @@ elements.investmentForm.addEventListener("submit", (event) => {
     principal: Number(elements.investmentPrincipal.value),
     rate: Number(elements.investmentRate.value),
     monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    extraContributions: elements.investmentProductType.value === "programmed_savings" ? currentExtraContributions : [],
     expectedInterest: Number(elements.investmentExpectedInterest.value || 0),
+    expectedInterestManual: investmentInterestEdited,
     ratePeriod: elements.investmentRatePeriod.value,
     interestType: elements.investmentInterestType.value,
     startDate: elements.investmentStartDate.value,
@@ -245,6 +255,15 @@ elements.investmentForm.addEventListener("submit", (event) => {
     return;
   }
   elements.investmentMonthlyContribution.setCustomValidity("");
+  const invalidExtraContribution = investment.extraContributions.find(
+    (contribution) => contribution.date < investment.startDate || contribution.date > investment.endDate
+  );
+  if (invalidExtraContribution) {
+    elements.extraContributionDate.setCustomValidity("Revisa los aportes extraordinarios: deben estar dentro del plazo de la inversion.");
+    elements.extraContributionDate.reportValidity();
+    return;
+  }
+  elements.extraContributionDate.setCustomValidity("");
   if (!dateValidation.valid) {
     elements.investmentEndDate.setCustomValidity(dateValidation.message);
     elements.investmentEndDate.reportValidity();
@@ -271,6 +290,7 @@ elements.investmentProductType.addEventListener("change", () => {
   updateInvestmentProductFields();
   updateInvestmentExpectedInterest();
 });
+elements.addExtraContribution.addEventListener("click", addExtraContribution);
 [
   elements.investmentPrincipal,
   elements.investmentRate,
@@ -706,7 +726,7 @@ function renderInvestments() {
       </dl>
       ${
         result.totalContributions > 0
-          ? `<p class="saving-result">Aportes mensuales: ${currency(result.monthlyContribution)} · Total aportado: ${currency(result.totalContributions)}</p>`
+          ? `<p class="saving-result">Aporte mensual: ${currency(result.monthlyContribution)} · Aportes extra: ${currency(result.totalExtraContributions)} · Total aportado: ${currency(result.totalContributions)}</p>`
           : ""
       }
       ${
@@ -900,14 +920,19 @@ function editInvestment(id) {
   elements.investmentPrincipal.value = investment.principal;
   elements.investmentRate.value = investment.rate;
   elements.investmentMonthlyContribution.value = investment.monthlyContribution || "";
+  currentExtraContributions = normalizeExtraContributions(investment.extraContributions);
+  renderExtraContributions();
   elements.investmentExpectedInterest.value = investment.expectedInterest ?? calculateInvestment(investment).interest.toFixed(2);
   elements.investmentRatePeriod.value = investment.ratePeriod;
   elements.investmentInterestType.value = investment.interestType;
   elements.investmentStartDate.value = investment.startDate;
   elements.investmentEndDate.value = investment.endDate;
   elements.investmentAlias.focus();
-  investmentInterestEdited = Boolean(investment.expectedInterest !== undefined && investment.expectedInterest !== "");
+  investmentInterestEdited =
+    investment.expectedInterestManual ??
+    Boolean(investment.expectedInterest !== undefined && investment.expectedInterest !== "");
   updateInvestmentProductFields();
+  updateInvestmentExpectedInterest({ force: !investmentInterestEdited });
 }
 
 function resetTransactionForm() {
@@ -954,12 +979,17 @@ function resetInvestmentForm() {
   elements.investmentMonthlyContribution.setCustomValidity("");
   elements.investmentProductType.value = "policy";
   elements.investmentMonthlyContribution.value = "";
+  currentExtraContributions = [];
+  renderExtraContributions();
   elements.investmentExpectedInterest.value = "";
   elements.investmentExpectedInterest.setCustomValidity("");
   elements.investmentRatePeriod.value = "annual";
   elements.investmentInterestType.value = "simple";
   elements.investmentStartDate.value = todayIso();
   elements.investmentEndDate.value = todayIso();
+  elements.extraContributionDate.value = todayIso();
+  elements.extraContributionAmount.value = "";
+  elements.extraContributionNote.value = "";
   investmentInterestEdited = false;
   updateInvestmentProductFields();
   updateInvestmentExpectedInterest({ force: true });
@@ -976,8 +1006,14 @@ function clearInvestmentDateValidation() {
 function updateInvestmentProductFields() {
   const isProgrammedSavings = elements.investmentProductType.value === "programmed_savings";
   elements.monthlyContributionField.classList.toggle("is-hidden", !isProgrammedSavings);
+  elements.extraContributionSection.classList.toggle("is-hidden", !isProgrammedSavings);
   elements.investmentMonthlyContribution.required = isProgrammedSavings;
   elements.investmentMonthlyContribution.setCustomValidity("");
+  elements.extraContributionDate.value = elements.extraContributionDate.value || elements.investmentStartDate.value || todayIso();
+  if (!isProgrammedSavings) {
+    currentExtraContributions = [];
+    renderExtraContributions();
+  }
   elements.investmentRatePeriod.value = "annual";
   elements.investmentInterestType.value = "simple";
 }
@@ -992,6 +1028,7 @@ function updateInvestmentExpectedInterest(options = {}) {
     principal: Number(elements.investmentPrincipal.value || 0),
     rate: Number(elements.investmentRate.value || 0),
     monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    extraContributions: currentExtraContributions,
     ratePeriod: elements.investmentRatePeriod.value,
     interestType: elements.investmentInterestType.value,
     startDate: elements.investmentStartDate.value,
@@ -1000,6 +1037,98 @@ function updateInvestmentExpectedInterest(options = {}) {
 
   elements.investmentExpectedInterest.value = formatNumberInput(result.calculatedInterest ?? result.interest);
   elements.investmentExpectedInterest.setCustomValidity("");
+}
+
+function addExtraContribution() {
+  const contribution = {
+    id: createId(),
+    date: elements.extraContributionDate.value,
+    amount: Number(elements.extraContributionAmount.value),
+    note: elements.extraContributionNote.value.trim()
+  };
+  const validation = validateExtraContribution(contribution);
+
+  if (!validation.valid) {
+    validation.element.setCustomValidity(validation.message);
+    validation.element.reportValidity();
+    return;
+  }
+
+  elements.extraContributionDate.setCustomValidity("");
+  elements.extraContributionAmount.setCustomValidity("");
+  currentExtraContributions.push(contribution);
+  currentExtraContributions.sort((a, b) => a.date.localeCompare(b.date));
+  elements.extraContributionAmount.value = "";
+  elements.extraContributionNote.value = "";
+  renderExtraContributions();
+  updateInvestmentExpectedInterest();
+}
+
+function validateExtraContribution(contribution) {
+  if (!contribution.date || contribution.date < elements.investmentStartDate.value || contribution.date > elements.investmentEndDate.value) {
+    return {
+      valid: false,
+      element: elements.extraContributionDate,
+      message: "La fecha del aporte debe estar dentro del plazo de la inversion."
+    };
+  }
+
+  if (!Number.isFinite(contribution.amount) || contribution.amount <= 0) {
+    return {
+      valid: false,
+      element: elements.extraContributionAmount,
+      message: "Ingresa un monto adicional mayor a cero."
+    };
+  }
+
+  return { valid: true };
+}
+
+function renderExtraContributions() {
+  elements.extraContributionList.replaceChildren();
+
+  if (currentExtraContributions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "mini-empty";
+    empty.textContent = "Sin aportes extraordinarios.";
+    elements.extraContributionList.append(empty);
+    return;
+  }
+
+  for (const contribution of currentExtraContributions) {
+    const item = document.createElement("div");
+    item.className = "extra-contribution-item";
+    item.innerHTML = `
+      <div>
+        <strong>${currency(contribution.amount)}</strong>
+        <span>${formatDate(contribution.date)}${contribution.note ? ` · ${escapeHtml(contribution.note)}` : ""}</span>
+      </div>
+      <button type="button" data-delete-extra-contribution="${contribution.id}">Eliminar</button>
+    `;
+    elements.extraContributionList.append(item);
+  }
+
+  elements.extraContributionList.querySelectorAll("[data-delete-extra-contribution]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentExtraContributions = currentExtraContributions.filter((contribution) => contribution.id !== button.dataset.deleteExtraContribution);
+      renderExtraContributions();
+      updateInvestmentExpectedInterest();
+    });
+  });
+}
+
+function normalizeExtraContributions(extraContributions = []) {
+  if (!Array.isArray(extraContributions)) return [];
+
+  return extraContributions
+    .map((contribution) => ({
+      id: contribution.id || createId(),
+      date: contribution.date,
+      amount: Number(contribution.amount) || 0,
+      note: contribution.note || ""
+    }))
+    .filter((contribution) => contribution.date && contribution.amount > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function removeItem(collection, id) {

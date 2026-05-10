@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260510-9" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260510-10" />
   </head>
   <body>
     <header class="app-header">
@@ -316,6 +316,29 @@
               <input id="investmentMonthlyContribution" type="number" min="0" step="0.01" placeholder="Ej. 50.00" />
             </label>
 
+            <section id="extraContributionSection" class="extra-contributions is-hidden">
+              <div class="panel-heading compact">
+                <h3>Aportes extraordinarios</h3>
+                <p>Agrega capital adicional que generara interes desde la fecha del deposito.</p>
+              </div>
+              <div class="form-row">
+                <label>
+                  Fecha del aporte
+                  <input id="extraContributionDate" type="date" />
+                </label>
+                <label>
+                  Monto adicional
+                  <input id="extraContributionAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+                </label>
+              </div>
+              <label>
+                Nota
+                <input id="extraContributionNote" type="text" placeholder="Ej. bono, ahorro adicional" />
+              </label>
+              <button type="button" id="addExtraContribution" class="ghost">Agregar aporte</button>
+              <div id="extraContributionList" class="extra-contribution-list"></div>
+            </section>
+
             <div class="form-row is-hidden">
               <label>
                 La tasa es
@@ -532,6 +555,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260510-9"></script>
+    <script type="module" src="./src/app.js?v=20260510-10"></script>
   </body>
 </html>
