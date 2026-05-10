@@ -15,7 +15,7 @@ import {
   estimateMonthlyVariableCashflow
 } from "../src/liquidity.js";
 import { createId } from "../src/ids.js";
-import { hasStoredRecords, mergeStateCopies } from "../src/state-sync.js";
+import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "../src/state-sync.js";
 
 const tests = [
   {
@@ -370,6 +370,36 @@ const tests = [
 
       assert.equal(merged.transactions.length, 0);
       assert.deepEqual(merged.deletedItemIds, ["tx-deleted"]);
+    }
+  },
+  {
+    name: "verifica que la copia central tenga los registros compartidos",
+    run() {
+      const expected = {
+        transactions: [{ id: "tx-1" }],
+        fixedItems: [],
+        goals: [],
+        investments: [{ id: "inv-1" }],
+        deletedItemIds: ["old-tx"]
+      };
+      const complete = {
+        transactions: [{ id: "tx-1" }],
+        fixedItems: [],
+        goals: [],
+        investments: [{ id: "inv-1" }],
+        deletedItemIds: ["old-tx"]
+      };
+      const incomplete = {
+        transactions: [{ id: "tx-1" }],
+        fixedItems: [],
+        goals: [],
+        investments: [],
+        deletedItemIds: []
+      };
+
+      assert.equal(hasAllSharedRecords(expected, complete), true);
+      assert.equal(hasAllSharedRecords(expected, incomplete), false);
+      assert.equal(typeof stateFingerprint(complete), "string");
     }
   },
   {

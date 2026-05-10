@@ -1,4 +1,4 @@
-import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { createServer } from "node:http";
 
@@ -47,8 +47,16 @@ createServer((request, response) => {
 
 function handleStateApi(request, response) {
   if (request.method === "GET") {
-    response.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    response.end(readState());
+    try {
+      response.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store"
+      });
+      response.end(readState());
+    } catch {
+      response.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify({ error: "No se pudo leer el estado guardado" }));
+    }
     return;
   }
 
@@ -62,14 +70,20 @@ function handleStateApi(request, response) {
     });
     request.on("end", () => {
       try {
-        JSON.parse(body);
-        mkdirSync(dataDir, { recursive: true });
-        writeFileSync(stateFile, body, "utf8");
-        response.writeHead(204);
-        response.end();
+        const parsedState = JSON.parse(body);
+        const stateToSave = {
+          ...parsedState,
+          serverSavedAt: new Date().toISOString()
+        };
+        writeState(stateToSave);
+        response.writeHead(200, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store"
+        });
+        response.end(JSON.stringify(stateToSave));
       } catch {
         response.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-        response.end(JSON.stringify({ error: "Estado invalido" }));
+        response.end(JSON.stringify({ error: "No se pudo guardar el estado" }));
       }
     });
     return;
@@ -82,4 +96,11 @@ function handleStateApi(request, response) {
 function readState() {
   if (!existsSync(stateFile)) return "{}";
   return readFileSync(stateFile, "utf8");
+}
+
+function writeState(state) {
+  mkdirSync(dataDir, { recursive: true });
+  const tempFile = join(dataDir, `budget-state.${Date.now()}.tmp`);
+  writeFileSync(tempFile, JSON.stringify(state), "utf8");
+  renameSync(tempFile, stateFile);
 }

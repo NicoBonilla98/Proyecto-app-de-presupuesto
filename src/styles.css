@@ -92,6 +92,42 @@ h2 {
   font-weight: 700;
 }
 
+.header-controls {
+  display: grid;
+  justify-items: end;
+  gap: 0.75rem;
+}
+
+.sync-status {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.sync-status.synced {
+  border-color: #8bb9a2;
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.sync-status.syncing {
+  border-color: #dfbd7e;
+  background: #fff8e9;
+  color: #7a4a00;
+}
+
+.sync-status.offline {
+  border-color: #e8a2b7;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
 .period-control select,
 input,
 select {
@@ -813,6 +849,16 @@ button.danger {
 
   .app-header {
     align-items: flex-start;
+  }
+
+  .header-controls {
+    justify-items: stretch;
+    width: 100%;
+  }
+
+  .sync-status {
+    width: 100%;
+    text-align: center;
   }
 
   .tab-nav {

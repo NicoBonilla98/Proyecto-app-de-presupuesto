@@ -16,10 +16,16 @@ import {
 } from "./finance.js";
 import { createId } from "./ids.js";
 import { calculateInvestmentCapacity } from "./liquidity.js";
-import { hasStoredRecords, mergeStateCopies } from "./state-sync.js";
+import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js";
 
 const storageKey = "presupuesto-hogar:v1";
 let hasSavedLocalState = Boolean(localStorage.getItem(storageKey));
+const syncRetryDelay = 5000;
+const syncRefreshDelay = 15000;
+let isSavingServerState = false;
+let pendingServerSave = false;
+let syncRetryTimer = null;
+let lastSyncedFingerprint = "";
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -29,6 +35,7 @@ const calendarState = {
 const elements = {
   tabButtons: document.querySelectorAll("[data-tab-target]"),
   tabPanels: document.querySelectorAll(".tab-panel"),
+  syncStatus: document.querySelector("#syncStatus"),
   periodSelect: document.querySelector("#periodSelect"),
   incomeTotal: document.querySelector("#incomeTotal"),
   expenseTotal: document.querySelector("#expenseTotal"),
@@ -139,6 +146,11 @@ updateBudgetFormFields("expense");
 updateInvestmentProductFields();
 render();
 hydrateServerState();
+setInterval(syncFromServer, syncRefreshDelay);
+window.addEventListener("focus", syncFromServer);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) syncFromServer();
+});
 
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
@@ -1013,7 +1025,7 @@ function loadState() {
 
 function persist() {
   persistLocalState();
-  saveServerState();
+  queueServerSave();
 }
 
 function persistLocalState() {
@@ -1104,54 +1116,166 @@ function addDaysIso(date, days) {
 }
 
 async function hydrateServerState() {
+  updateSyncStatus("syncing");
   try {
-    const response = await fetch("/api/state");
-    if (!response.ok) return;
-    const serverState = await response.json();
+    const serverState = await readServerState();
     if (!serverState || Object.keys(serverState).length === 0) {
-      if (hasStoredRecords(state)) saveServerState();
+      if (hasStoredRecords(state)) {
+        queueServerSave();
+      } else {
+        updateSyncStatus("local");
+      }
       return;
     }
 
-    const reconciledState = hasSavedLocalState
-      ? mergeStateCopies(state, serverState)
-      : mergeStateCopies(serverState, state);
-
-    Object.assign(state, reconciledState);
-    persistLocalState();
-    syncControlsFromState();
-    render();
-    saveServerState();
+    applyServerState(serverState, !hasSavedLocalState);
+    queueServerSave();
   } catch {
-    // Static hosting fallback: localStorage remains the persistence layer.
+    updateSyncStatus("offline");
+    scheduleServerRetry();
   }
 }
 
-async function saveServerState() {
+async function syncFromServer() {
+  if (isSavingServerState) return;
+
   try {
-    const latest = await readServerState();
-    const mergedState = mergeStateCopies(state, latest);
-    await fetch("/api/state", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mergedState)
-    });
+    const serverState = await readServerState();
+    if (!serverState || Object.keys(serverState).length === 0) {
+      if (hasStoredRecords(state)) queueServerSave();
+      return;
+    }
+
+    applyServerState(serverState, true);
+    if (!hasAllSharedRecords(state, serverState)) {
+      queueServerSave();
+    } else {
+      updateSyncStatus("synced");
+    }
   } catch {
-    // If the API is not available, localStorage already has the latest state.
+    updateSyncStatus("offline");
+    scheduleServerRetry();
   }
 }
 
 async function readServerState() {
-  try {
-    const response = await fetch("/api/state");
-    if (!response.ok) return {};
-    return await response.json();
-  } catch {
-    return {};
+  const response = await fetch("/api/state", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("No se pudo leer la copia central.");
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("La copia central no respondio JSON.");
+  }
+
+  const serverState = await response.json();
+  return serverState && typeof serverState === "object" ? serverState : {};
+}
+
+function applyServerState(serverState, preferServer) {
+  const previousFingerprint = stateFingerprint(state);
+  const reconciledState = preferServer ? mergeStateCopies(serverState, state) : mergeStateCopies(state, serverState);
+
+  Object.assign(state, reconciledState);
+  persistLocalState();
+  syncControlsFromState();
+
+  const currentFingerprint = stateFingerprint(state);
+  if (currentFingerprint !== previousFingerprint) {
+    render();
+  }
+  lastSyncedFingerprint = currentFingerprint;
+}
+
+async function saveServerState() {
+  const latest = await readServerState();
+  const mergedState = mergeStateCopies(state, latest);
+  const response = await fetch("/api/state", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(mergedState)
+  });
+
+  if (!response.ok) {
+    throw new Error("No se pudo guardar la copia central.");
+  }
+
+  const savedState = await response.json();
+  if (!hasAllSharedRecords(mergedState, savedState)) {
+    throw new Error("La copia central no confirmo todos los registros.");
+  }
+
+  Object.assign(state, mergeStateCopies(savedState, state));
+  persistLocalState();
+  lastSyncedFingerprint = stateFingerprint(state);
+  updateSyncStatus("synced");
+}
+
+function queueServerSave() {
+  pendingServerSave = true;
+  if (!isSavingServerState) {
+    flushServerSave();
   }
 }
 
+async function flushServerSave() {
+  if (!pendingServerSave) return;
+
+  pendingServerSave = false;
+  isSavingServerState = true;
+  updateSyncStatus("syncing");
+
+  try {
+    await saveServerState();
+  } catch {
+    pendingServerSave = true;
+    updateSyncStatus("offline");
+    scheduleServerRetry();
+  } finally {
+    isSavingServerState = false;
+  }
+}
+
+function scheduleServerRetry() {
+  if (syncRetryTimer) return;
+
+  syncRetryTimer = setTimeout(() => {
+    syncRetryTimer = null;
+    if (pendingServerSave || stateFingerprint(state) !== lastSyncedFingerprint) {
+      pendingServerSave = true;
+      flushServerSave();
+    } else {
+      syncFromServer();
+    }
+  }, syncRetryDelay);
+}
+
+function updateSyncStatus(status) {
+  if (!elements.syncStatus) return;
+
+  const labels = {
+    syncing: "Sincronizando",
+    synced: "Sincronizado",
+    local: "Guardado local",
+    offline: "Pendiente de sincronizar"
+  };
+
+  elements.syncStatus.textContent = labels[status] || labels.local;
+  elements.syncStatus.className = `sync-status ${status}`;
+}
+
 function syncControlsFromState() {
+  if (!state.liquiditySettings) {
+    state.liquiditySettings = {
+      availableCash: 0,
+      projectionMonths: 6,
+      safetyMonths: 2,
+      variableExpenseBuffer: 10,
+      includeVariableIncome: false
+    };
+  }
+
   elements.periodSelect.value = state.period;
   elements.availableCash.value = state.liquiditySettings.availableCash || "";
   elements.projectionMonths.value = state.liquiditySettings.projectionMonths;

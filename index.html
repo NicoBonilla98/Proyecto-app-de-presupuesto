@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260510-4" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260510-5" />
   </head>
   <body>
     <header class="app-header">
@@ -13,13 +13,16 @@
         <h1>Presupuesto Hogar</h1>
         <p class="intro">Controla ingresos, gastos, metas de ahorro e inversiones sin complicarte.</p>
       </div>
-      <div class="period-control" aria-label="Periodo principal">
-        <span>Periodo</span>
-        <select id="periodSelect">
-          <option value="monthly" selected>Mensual</option>
-          <option value="biweekly">Quincenal</option>
-          <option value="weekly">Semanal</option>
-        </select>
+      <div class="header-controls">
+        <div id="syncStatus" class="sync-status local" aria-live="polite">Guardado local</div>
+        <div class="period-control" aria-label="Periodo principal">
+          <span>Periodo</span>
+          <select id="periodSelect">
+            <option value="monthly" selected>Mensual</option>
+            <option value="biweekly">Quincenal</option>
+            <option value="weekly">Semanal</option>
+          </select>
+        </div>
       </div>
     </header>
 
@@ -524,6 +527,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260510-4"></script>
+    <script type="module" src="./src/app.js?v=20260510-5"></script>
   </body>
 </html>

@@ -23,6 +23,39 @@ export function hasStoredRecords(state = {}) {
   return collectionKeys.some((key) => Array.isArray(state[key]) && state[key].length > 0);
 }
 
+export function hasAllSharedRecords(sourceState = {}, targetState = {}) {
+  const sourceDeletedIds = new Set(asArray(sourceState.deletedItemIds));
+  const targetDeletedIds = new Set(asArray(targetState.deletedItemIds));
+  const targetIds = new Set(
+    collectionKeys.flatMap((key) => asArray(targetState[key]).map((item) => item?.id).filter(Boolean))
+  );
+
+  for (const key of collectionKeys) {
+    for (const item of asArray(sourceState[key])) {
+      if (!item?.id || sourceDeletedIds.has(item.id)) continue;
+      if (!targetIds.has(item.id)) return false;
+    }
+  }
+
+  for (const id of sourceDeletedIds) {
+    if (!targetDeletedIds.has(id)) return false;
+  }
+
+  return true;
+}
+
+export function stateFingerprint(state = {}) {
+  return JSON.stringify({
+    period: state.period,
+    deletedItemIds: asArray(state.deletedItemIds).sort(),
+    transactions: collectionFingerprint(state.transactions),
+    goals: collectionFingerprint(state.goals),
+    fixedItems: collectionFingerprint(state.fixedItems),
+    investments: collectionFingerprint(state.investments),
+    liquiditySettings: state.liquiditySettings || {}
+  });
+}
+
 function mergeCollections(primaryValue, secondaryValue, deletedItems) {
   const records = [];
   const seen = new Set();
@@ -45,4 +78,10 @@ function asArray(value) {
 
 function mergeDeletedIds(primaryValue, secondaryValue) {
   return [...new Set([...asArray(primaryValue), ...asArray(secondaryValue)])];
+}
+
+function collectionFingerprint(value) {
+  return asArray(value)
+    .map((item) => item || {})
+    .sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")));
 }
