@@ -20,7 +20,10 @@ export function mergeStateCopies(primaryState = {}, secondaryState = {}) {
 }
 
 export function hasStoredRecords(state = {}) {
-  return collectionKeys.some((key) => Array.isArray(state[key]) && state[key].length > 0);
+  return (
+    collectionKeys.some((key) => Array.isArray(state[key]) && state[key].length > 0) ||
+    asArray(state.deletedItemIds).length > 0
+  );
 }
 
 export function hasAllSharedRecords(sourceState = {}, targetState = {}) {
@@ -39,6 +42,7 @@ export function hasAllSharedRecords(sourceState = {}, targetState = {}) {
 
   for (const id of sourceDeletedIds) {
     if (!targetDeletedIds.has(id)) return false;
+    if (targetIds.has(id)) return false;
   }
 
   return true;

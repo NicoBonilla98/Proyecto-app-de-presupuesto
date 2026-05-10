@@ -370,6 +370,7 @@ const tests = [
 
       assert.equal(merged.transactions.length, 0);
       assert.deepEqual(merged.deletedItemIds, ["tx-deleted"]);
+      assert.equal(hasStoredRecords({ deletedItemIds: ["tx-deleted"] }), true);
     }
   },
   {
@@ -396,9 +397,17 @@ const tests = [
         investments: [],
         deletedItemIds: []
       };
+      const invalidDeletedRecord = {
+        transactions: [{ id: "old-tx" }],
+        fixedItems: [],
+        goals: [],
+        investments: [{ id: "inv-1" }],
+        deletedItemIds: ["old-tx"]
+      };
 
       assert.equal(hasAllSharedRecords(expected, complete), true);
       assert.equal(hasAllSharedRecords(expected, incomplete), false);
+      assert.equal(hasAllSharedRecords(expected, invalidDeletedRecord), false);
       assert.equal(typeof stateFingerprint(complete), "string");
     }
   },

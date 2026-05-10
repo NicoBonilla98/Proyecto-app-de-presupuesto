@@ -1013,6 +1013,7 @@ function loadState() {
     return {
       ...fallback,
       ...saved,
+      deletedItemIds: Array.isArray(saved?.deletedItemIds) ? saved.deletedItemIds : fallback.deletedItemIds,
       liquiditySettings: {
         ...fallback.liquiditySettings,
         ...(saved?.liquiditySettings || {})
