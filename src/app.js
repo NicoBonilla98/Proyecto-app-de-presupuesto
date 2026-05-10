@@ -1110,14 +1110,47 @@ async function hydrateServerState() {
 
 async function saveServerState() {
   try {
+    const latest = await readServerState();
+    const mergedState = mergeStateForSave(latest, state);
     await fetch("/api/state", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state)
+      body: JSON.stringify(mergedState)
     });
   } catch {
     // If the API is not available, localStorage already has the latest state.
   }
+}
+
+async function readServerState() {
+  try {
+    const response = await fetch("/api/state");
+    if (!response.ok) return {};
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function mergeStateForSave(serverState, localState) {
+  return {
+    ...serverState,
+    ...localState,
+    transactions: preserveNonEmpty(localState.transactions, serverState.transactions),
+    fixedItems: preserveNonEmpty(localState.fixedItems, serverState.fixedItems),
+    goals: preserveNonEmpty(localState.goals, serverState.goals),
+    investments: preserveNonEmpty(localState.investments, serverState.investments),
+    liquiditySettings: {
+      ...(serverState.liquiditySettings || {}),
+      ...(localState.liquiditySettings || {})
+    }
+  };
+}
+
+function preserveNonEmpty(localValue, serverValue) {
+  return Array.isArray(localValue) && localValue.length === 0 && Array.isArray(serverValue) && serverValue.length > 0
+    ? serverValue
+    : localValue;
 }
 
 function syncControlsFromState() {
