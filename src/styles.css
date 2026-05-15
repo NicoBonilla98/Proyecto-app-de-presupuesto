@@ -1463,6 +1463,10 @@ button.danger {
   background: #d88915;
 }
 
+.goal-dot {
+  background: var(--blue);
+}
+
 .calendar-weekdays,
 .calendar-grid-month {
   display: grid;
@@ -1526,6 +1530,10 @@ button.danger {
 
 .calendar-event.policy {
   background: #d88915;
+}
+
+.calendar-event.goal {
+  background: var(--blue);
 }
 
 .empty-state {

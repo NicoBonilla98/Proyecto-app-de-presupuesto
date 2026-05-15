@@ -1467,7 +1467,15 @@ function groupCalendarEvents() {
       type: "policy",
       label: `Vence inversion: ${investment.alias || investment.name}`,
       amount: calculateInvestment(investment).finalAmount
-    }))
+    })),
+    ...state.goals
+      .filter((goal) => goal.targetDate)
+      .map((goal) => ({
+        date: goal.targetDate,
+        type: "goal",
+        label: `Compra futura: ${goal.name}`,
+        amount: Number(goal.target) || 0
+      }))
   ];
 
   return events.reduce((grouped, event) => {
