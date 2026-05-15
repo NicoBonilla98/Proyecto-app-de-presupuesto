@@ -1,8 +1,14 @@
 export const incomeCategories = [
-  { value: "fixed", label: "Ganancia fija" },
-  { value: "variable", label: "Ganancia variable" },
-  { value: "unique", label: "Ingreso unico" },
-  { value: "other", label: "Ingreso vario" }
+  { value: "salary", label: "Salario" },
+  { value: "business", label: "Negocio" },
+  { value: "freelance", label: "Freelance" },
+  { value: "bonus", label: "Bonos" },
+  { value: "investment", label: "Inversiones" },
+  { value: "rent", label: "Arriendos" },
+  { value: "sales", label: "Ventas" },
+  { value: "gift", label: "Regalos" },
+  { value: "refund", label: "Reembolsos" },
+  { value: "other", label: "Otros" }
 ];
 
 export const expenseCategories = [
@@ -128,6 +134,7 @@ export function generateFixedTransactions(fixedItems, range) {
       category: "fixed",
       description: item.description,
       amount: Number(item.amount) || 0,
+      incomeCategory: item.kind === "income" ? item.incomeCategory || "other" : undefined,
       expenseCategory: item.kind === "expense" ? item.expenseCategory || "other" : undefined,
       date
     }));

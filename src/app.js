@@ -48,6 +48,7 @@ const elements = {
   incomeEditId: document.querySelector("#incomeEditId"),
   incomeEditMode: document.querySelector("#incomeEditMode"),
   incomeType: document.querySelector("#incomeType"),
+  incomeCategory: document.querySelector("#incomeCategory"),
   incomeDescription: document.querySelector("#incomeDescription"),
   incomeAmount: document.querySelector("#incomeAmount"),
   incomeDateField: document.querySelector("#incomeDateField"),
@@ -398,6 +399,7 @@ function handleBudgetSubmit(event, kind) {
       frequency: elements[`${kind}Frequency`].value,
       description,
       amount,
+      incomeCategory: kind === "income" ? elements.incomeCategory.value : undefined,
       expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
       startDate: elements[`${kind}StartDate`].value
     };
@@ -419,6 +421,7 @@ function handleBudgetSubmit(event, kind) {
       id: editMode === "transaction" && editId ? editId : createId(),
       kind,
       category: type,
+      incomeCategory: kind === "income" ? elements.incomeCategory.value : undefined,
       expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
       description,
       amount,
@@ -902,6 +905,9 @@ function editTransaction(id) {
   elements[`${kind}EditId`].value = transaction.id;
   elements[`${kind}EditMode`].value = "transaction";
   elements[`${kind}Type`].value = transaction.category === "variable" ? "variable" : "unique";
+  if (kind === "income") {
+    elements.incomeCategory.value = transaction.incomeCategory || "other";
+  }
   if (kind === "expense") {
     elements.expenseCategory.value = transaction.expenseCategory || "other";
   }
@@ -937,6 +943,9 @@ function editFixedItem(id) {
   elements[`${kind}EditMode`].value = "fixed";
   elements[`${kind}Type`].value = "fixed";
   elements[`${kind}Frequency`].value = fixedItem.frequency;
+  if (kind === "income") {
+    elements.incomeCategory.value = fixedItem.incomeCategory || "other";
+  }
   if (kind === "expense") {
     elements.expenseCategory.value = fixedItem.expenseCategory || "other";
   }
@@ -995,6 +1004,9 @@ function resetBudgetForm(kind) {
   elements[`${kind}EditId`].value = "";
   elements[`${kind}EditMode`].value = "";
   elements[`${kind}Type`].value = "fixed";
+  if (kind === "income") {
+    elements.incomeCategory.value = "salary";
+  }
   if (kind === "expense") {
     elements.expenseCategory.value = "food";
   }
@@ -1286,7 +1298,16 @@ function emptyState(message = "") {
 
 function categoryLabel(transaction) {
   if (transaction.kind === "income") {
-    return incomeCategories.find((category) => category.value === transaction.category)?.label || "Sin categoria";
+    const incomeType = {
+      fixed: "Ingreso fijo",
+      variable: "Ingreso variable",
+      unique: "Ingreso unico",
+      other: "Ingreso vario"
+    }[transaction.category] || "Ingreso";
+    const incomeCategory =
+      incomeCategories.find((category) => category.value === transaction.incomeCategory)?.label || "Sin categoria";
+
+    return `${incomeType} · ${incomeCategory}`;
   }
 
   const expenseType = {

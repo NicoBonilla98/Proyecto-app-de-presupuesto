@@ -102,6 +102,30 @@ const tests = [
     }
   },
   {
+    name: "conserva categoria de ingreso en ingresos fijos generados",
+    run() {
+      const range = getPeriodRange("2026-05-09", "monthly");
+      const transactions = generateFixedTransactions(
+        [
+          {
+            id: "salary",
+            kind: "income",
+            frequency: "monthly",
+            description: "Sueldo",
+            amount: 1200,
+            incomeCategory: "salary",
+            startDate: "2026-05-01"
+          }
+        ],
+        range
+      );
+
+      assert.equal(transactions.length, 1);
+      assert.equal(transactions[0].category, "fixed");
+      assert.equal(transactions[0].incomeCategory, "salary");
+    }
+  },
+  {
     name: "conserva categoria de gasto en gastos fijos generados",
     run() {
       const range = getPeriodRange("2026-05-09", "monthly");
