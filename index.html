@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260515-1" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260515-2" />
   </head>
   <body>
     <header class="app-header">
@@ -91,6 +91,20 @@
             </article>
 
             <article class="panel dashboard-panel">
+              <div class="panel-heading dashboard-heading-row">
+                <div>
+                  <h2>Ingresos vs Gastos</h2>
+                  <p>Comparacion de los ultimos 6 meses.</p>
+                </div>
+                <div class="chart-legend">
+                  <span><i class="legend-dot income-dot"></i>Ingresos</span>
+                  <span><i class="legend-dot neutral-dot"></i>Gastos</span>
+                </div>
+              </div>
+              <div id="dashboardCashflowChart" class="dashboard-cashflow-chart" aria-label="Grafico de ingresos contra gastos"></div>
+            </article>
+
+            <article class="panel dashboard-panel">
               <div class="panel-heading">
                 <h2>Compras futuras</h2>
                 <p>Avance de las metas registradas.</p>
@@ -107,6 +121,22 @@
               </div>
               <div id="dashboardInvestmentBreakdown" class="dashboard-split-list"></div>
               <div id="dashboardInvestmentBars" class="dashboard-mini-chart" aria-label="Grafico de inversiones"></div>
+            </article>
+
+            <article class="panel dashboard-panel">
+              <div class="panel-heading">
+                <h2>Distribucion de gastos</h2>
+                <p>Participacion por categoria en el periodo.</p>
+              </div>
+              <div class="dashboard-donut-layout">
+                <div id="dashboardExpenseDonut" class="dashboard-donut" aria-label="Grafico circular de gastos">
+                  <div>
+                    <span>Total</span>
+                    <strong id="dashboardExpenseDonutTotal">$0.00</strong>
+                  </div>
+                </div>
+                <div id="dashboardExpenseLegend" class="dashboard-donut-legend"></div>
+              </div>
             </article>
 
             <article class="dashboard-advice-card">

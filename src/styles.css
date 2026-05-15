@@ -327,6 +327,32 @@ select {
   gap: 1.2rem;
 }
 
+.dashboard-heading-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.neutral-dot {
+  background: #dfe4e5;
+}
+
 .dashboard-category-list,
 .dashboard-split-list {
   display: grid;
@@ -374,6 +400,48 @@ select {
 
 .dashboard-category-row.expense .dashboard-bar span {
   background: var(--red);
+}
+
+.dashboard-cashflow-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+  min-height: 15rem;
+  align-items: end;
+}
+
+.cashflow-month {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.cashflow-bars {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: end;
+  gap: 0.25rem;
+  height: 11.5rem;
+}
+
+.cashflow-bars span {
+  display: block;
+  min-height: 0.25rem;
+  border-radius: 5px 5px 0 0;
+}
+
+.cashflow-bars .income {
+  background: #18bd87;
+}
+
+.cashflow-bars .expense {
+  background: #dfe4e5;
+}
+
+.cashflow-month strong {
+  color: #52627a;
+  font-size: 0.8rem;
+  text-align: center;
 }
 
 .dashboard-goals-grid {
@@ -432,6 +500,77 @@ select {
   min-height: 1rem;
   border-radius: 5px 5px 0 0;
   background: linear-gradient(180deg, #18bd87, #bdebdc);
+}
+
+.dashboard-donut-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: center;
+}
+
+.dashboard-donut {
+  display: grid;
+  place-items: center;
+  width: min(13rem, 100%);
+  aspect-ratio: 1;
+  justify-self: center;
+  border-radius: 50%;
+  background: conic-gradient(#dfe4e5 0% 100%);
+  position: relative;
+}
+
+.dashboard-donut::after {
+  content: "";
+  position: absolute;
+  width: 58%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.dashboard-donut > div {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.dashboard-donut span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.dashboard-donut strong {
+  font-size: 1rem;
+}
+
+.dashboard-donut-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1rem;
+}
+
+.donut-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.donut-legend-item i {
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+}
+
+.donut-legend-item span {
+  overflow-wrap: anywhere;
 }
 
 .dashboard-advice-card {
@@ -1295,6 +1434,15 @@ button.danger {
     flex-direction: column;
   }
 
+  .dashboard-heading-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dashboard-donut-layout {
+    grid-template-columns: 1fr;
+  }
+
   .budget-status-amount {
     min-width: 0;
     text-align: left;
@@ -1312,6 +1460,8 @@ button.danger {
   .filter-grid,
   .calendar-grid,
   .calendar-controls,
+  .dashboard-cashflow-chart,
+  .dashboard-donut-legend,
   .dashboard-goals-grid,
   .investment-facts {
     grid-template-columns: 1fr;

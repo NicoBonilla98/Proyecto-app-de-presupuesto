@@ -49,9 +49,13 @@ const elements = {
   dashboardAvailable: document.querySelector("#dashboardAvailable"),
   dashboardExpenseCategories: document.querySelector("#dashboardExpenseCategories"),
   dashboardIncomeCategories: document.querySelector("#dashboardIncomeCategories"),
+  dashboardCashflowChart: document.querySelector("#dashboardCashflowChart"),
   dashboardInvestmentBreakdown: document.querySelector("#dashboardInvestmentBreakdown"),
   dashboardInvestmentBars: document.querySelector("#dashboardInvestmentBars"),
   dashboardGoalsList: document.querySelector("#dashboardGoalsList"),
+  dashboardExpenseDonut: document.querySelector("#dashboardExpenseDonut"),
+  dashboardExpenseDonutTotal: document.querySelector("#dashboardExpenseDonutTotal"),
+  dashboardExpenseLegend: document.querySelector("#dashboardExpenseLegend"),
   dashboardTip: document.querySelector("#dashboardTip"),
   dashboardAlerts: document.querySelector("#dashboardAlerts"),
   incomeTotal: document.querySelector("#incomeTotal"),
@@ -563,19 +567,23 @@ function renderDashboard(range, budgetTransactions, totals) {
   elements.dashboardExpenses.textContent = currency(totals.expense);
   elements.dashboardGoals.textContent = currency(Math.max(goalsTarget - goalsSaved, 0));
   elements.dashboardAvailable.textContent = currency(totals.balance);
+  const expenseRows = summarizeTransactionsByCategory(budgetTransactions, range, "expense", "expenseCategory", expenseCategories);
+  const incomeRows = summarizeTransactionsByCategory(budgetTransactions, range, "income", "incomeCategory", incomeCategories);
 
   renderDashboardCategoryRows(
     elements.dashboardExpenseCategories,
-    summarizeTransactionsByCategory(budgetTransactions, range, "expense", "expenseCategory", expenseCategories),
+    expenseRows,
     totals.expense,
     "expense"
   );
   renderDashboardCategoryRows(
     elements.dashboardIncomeCategories,
-    summarizeTransactionsByCategory(budgetTransactions, range, "income", "incomeCategory", incomeCategories),
+    incomeRows,
     totals.income,
     "income"
   );
+  renderDashboardCashflowChart(currentMonthlySummaries());
+  renderDashboardExpenseDonut(expenseRows, totals.expense);
   renderDashboardInvestments(investmentRows);
   renderDashboardGoals();
   renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows);
@@ -602,6 +610,65 @@ function renderDashboardCategoryRows(container, rows, total, tone) {
       <div class="dashboard-bar"><span style="width: ${percent}%"></span></div>
     `;
     container.append(item);
+  }
+}
+
+function renderDashboardCashflowChart(months) {
+  elements.dashboardCashflowChart.replaceChildren();
+
+  if (months.length === 0) {
+    elements.dashboardCashflowChart.append(emptyState("Aun no hay datos mensuales."));
+    return;
+  }
+
+  const maxAmount = Math.max(...months.flatMap((month) => [month.income, month.expense]), 1);
+
+  for (const month of months) {
+    const incomeHeight = Math.max((month.income / maxAmount) * 100, month.income > 0 ? 4 : 0);
+    const expenseHeight = Math.max((month.expense / maxAmount) * 100, month.expense > 0 ? 4 : 0);
+    const group = document.createElement("div");
+    group.className = "cashflow-month";
+    group.innerHTML = `
+      <div class="cashflow-bars">
+        <span class="income" style="height: ${incomeHeight}%" title="Ingresos: ${currency(month.income)}"></span>
+        <span class="expense" style="height: ${expenseHeight}%" title="Gastos: ${currency(month.expense)}"></span>
+      </div>
+      <strong>${month.label}</strong>
+    `;
+    elements.dashboardCashflowChart.append(group);
+  }
+}
+
+function renderDashboardExpenseDonut(rows, total) {
+  const colors = ["#007a4d", "#18bd87", "#52627a", "#dfe4e5", "#d88915", "#c9003b"];
+  const visibleRows = rows.slice(0, colors.length);
+  let cursor = 0;
+  const segments = visibleRows.map((row, index) => {
+    const start = cursor;
+    const end = total > 0 ? cursor + (row.amount / total) * 100 : cursor;
+    cursor = end;
+    return `${colors[index]} ${start}% ${end}%`;
+  });
+
+  elements.dashboardExpenseDonut.style.background =
+    total > 0 ? `conic-gradient(${segments.join(", ")})` : "conic-gradient(#dfe4e5 0% 100%)";
+  elements.dashboardExpenseDonutTotal.textContent = currency(total);
+  elements.dashboardExpenseLegend.replaceChildren();
+
+  if (visibleRows.length === 0) {
+    elements.dashboardExpenseLegend.append(emptyState("Aun no hay gastos para distribuir."));
+    return;
+  }
+
+  for (const [index, row] of visibleRows.entries()) {
+    const percent = total > 0 ? (row.amount / total) * 100 : 0;
+    const item = document.createElement("div");
+    item.className = "donut-legend-item";
+    item.innerHTML = `
+      <i style="background: ${colors[index]}"></i>
+      <span>${escapeHtml(row.label)} (${percent.toFixed(0)}%)</span>
+    `;
+    elements.dashboardExpenseLegend.append(item);
   }
 }
 
@@ -655,6 +722,25 @@ function renderDashboardGoals() {
     `;
     elements.dashboardGoalsList.append(item);
   }
+}
+
+function currentMonthlySummaries(currentDate = todayIso(), months = 6) {
+  const current = new Date(`${currentDate}T00:00:00`);
+  const rows = [];
+
+  for (let index = months - 1; index >= 0; index -= 1) {
+    const date = new Date(current.getFullYear(), current.getMonth() - index, 1);
+    const range = getPeriodRange(toIsoDate(date), "monthly");
+    const transactions = getBudgetTransactions(range);
+    const totals = calculateTotals(transactions, range);
+    rows.push({
+      label: date.toLocaleDateString("es-EC", { month: "short" }).replace(".", "").toUpperCase(),
+      income: totals.income,
+      expense: totals.expense
+    });
+  }
+
+  return rows;
 }
 
 function renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows) {
