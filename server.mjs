@@ -48,15 +48,21 @@ createServer((request, response) => {
 });
 
 function handleStateApi(request, response) {
+  if (request.method === "OPTIONS") {
+    writeCorsHeaders(response, 204, { "Access-Control-Max-Age": "86400" });
+    response.end();
+    return;
+  }
+
   if (request.method === "GET") {
     try {
-      response.writeHead(200, {
+      writeCorsHeaders(response, 200, {
         "Content-Type": "application/json; charset=utf-8",
         "Cache-Control": "no-store"
       });
       response.end(readState());
     } catch {
-      response.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+      writeCorsHeaders(response, 500, { "Content-Type": "application/json; charset=utf-8" });
       response.end(JSON.stringify({ error: "No se pudo leer el estado guardado" }));
     }
     return;
@@ -79,21 +85,30 @@ function handleStateApi(request, response) {
           serverSavedAt: new Date().toISOString()
         };
         writeState(stateToSave);
-        response.writeHead(200, {
+        writeCorsHeaders(response, 200, {
           "Content-Type": "application/json; charset=utf-8",
           "Cache-Control": "no-store"
         });
         response.end(JSON.stringify(stateToSave));
       } catch {
-        response.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        writeCorsHeaders(response, 400, { "Content-Type": "application/json; charset=utf-8" });
         response.end(JSON.stringify({ error: "No se pudo guardar el estado" }));
       }
     });
     return;
   }
 
-  response.writeHead(405, { "Allow": "GET, PUT" });
+  writeCorsHeaders(response, 405, { "Allow": "GET, PUT, OPTIONS" });
   response.end();
+}
+
+function writeCorsHeaders(response, statusCode, headers = {}) {
+  response.writeHead(statusCode, {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, PUT, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    ...headers
+  });
 }
 
 function readState() {

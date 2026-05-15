@@ -22,6 +22,8 @@ import { calculateInvestmentCapacity } from "./liquidity.js";
 import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js";
 
 const storageKey = "presupuesto-hogar:v1";
+const syncServerUrlKey = "presupuesto-hogar:sync-server-url";
+const defaultMobileSyncServerUrl = "http://192.168.100.54";
 let hasSavedLocalState = Boolean(localStorage.getItem(storageKey));
 const syncRetryDelay = 5000;
 const syncRefreshDelay = 15000;
@@ -2099,7 +2101,7 @@ async function syncFromServer() {
 }
 
 async function readServerState() {
-  const response = await fetch("/api/state", { cache: "no-store" });
+  const response = await fetch(apiUrl("/api/state"), { cache: "no-store" });
   if (!response.ok) {
     throw new Error("No se pudo leer la copia central.");
   }
@@ -2131,7 +2133,7 @@ function applyServerState(serverState, preferServer) {
 async function saveServerState() {
   const latest = await readServerState();
   const mergedState = mergeStateCopies(state, latest);
-  const response = await fetch("/api/state", {
+  const response = await fetch(apiUrl("/api/state"), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(mergedState)
@@ -2150,6 +2152,23 @@ async function saveServerState() {
   persistLocalState();
   lastSyncedFingerprint = stateFingerprint(state);
   updateSyncStatus("synced");
+}
+
+function apiUrl(path) {
+  const baseUrl = getSyncServerUrl();
+  return baseUrl ? `${baseUrl}${path}` : path;
+}
+
+function getSyncServerUrl() {
+  const savedUrl = localStorage.getItem(syncServerUrlKey);
+  if (savedUrl) return savedUrl.replace(/\/$/, "");
+
+  const isNativeMobileShell =
+    window.Capacitor?.isNativePlatform?.() ||
+    window.location.protocol === "capacitor:" ||
+    window.location.protocol === "ionic:";
+
+  return isNativeMobileShell ? defaultMobileSyncServerUrl : "";
 }
 
 function queueServerSave() {

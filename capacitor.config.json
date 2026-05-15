@@ -1,0 +1,11 @@
+{
+  "appId": "com.presupuestohogar.app",
+  "appName": "Presupuesto Hogar",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
