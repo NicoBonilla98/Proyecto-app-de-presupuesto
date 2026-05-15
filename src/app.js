@@ -1071,6 +1071,7 @@ function renderGoals() {
           Cuanto quieres abonar hacia la meta
           <input type="number" min="0" step="0.01" placeholder="0.00" required />
         </label>
+        <p class="contribution-feedback" aria-live="polite"></p>
         <div class="button-row">
           <button type="submit" class="primary">Guardar abono</button>
           <button type="button" class="ghost" data-cancel-contribution="${goal.id}">Cancelar</button>
@@ -1117,8 +1118,10 @@ function toggleGoalContributionForm(goalId, shouldShow) {
 
   form.classList.toggle("is-hidden", !shouldShow);
   const input = form.querySelector("input");
+  const feedback = form.querySelector(".contribution-feedback");
   if (shouldShow) {
     input.value = "";
+    feedback.textContent = "";
     input.focus();
   }
 }
@@ -1129,14 +1132,62 @@ function handleGoalContribution(event) {
   const form = event.currentTarget;
   const goal = state.goals.find((item) => item.id === form.dataset.contributionForm);
   const input = form.querySelector("input");
+  const feedback = form.querySelector(".contribution-feedback");
   const amount = Number(input.value);
 
   if (!goal || amount <= 0) return;
 
-  goal.saved = Math.min((Number(goal.saved) || 0) + amount, Number(goal.target) || 0);
+  const currentSaved = Number(goal.saved) || 0;
+  const target = Number(goal.target) || 0;
+  const remaining = Math.max(target - currentSaved, 0);
+  const appliedAmount = Math.min(amount, remaining);
+  const surplus = Math.max(amount - appliedAmount, 0);
+
+  goal.saved = Math.min(currentSaved + appliedAmount, target);
   goal.updatedAt = new Date().toISOString();
+  const isCompleted = target > 0 && goal.saved >= target && currentSaved < target;
+
+  const surplusMessage =
+    surplus > 0 ? `El abono supera la meta. Se aplicara ${currency(appliedAmount)} y sobran ${currency(surplus)}.` : "";
+  if (surplusMessage) feedback.textContent = surplusMessage;
   persist();
   render();
+  if (surplusMessage) {
+    showGoalToast(surplusMessage);
+  }
+  if (isCompleted) {
+    launchGoalConfetti();
+    showGoalToast(`Meta cumplida: ${goal.name}`);
+  }
+}
+
+function launchGoalConfetti() {
+  const colors = ["#007a4d", "#18bd87", "#d88915", "#c9003b", "#31415c"];
+  const container = document.createElement("div");
+  container.className = "confetti-layer";
+  container.setAttribute("aria-hidden", "true");
+
+  for (let index = 0; index < 120; index += 1) {
+    const piece = document.createElement("i");
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.background = colors[index % colors.length];
+    piece.style.animationDelay = `${Math.random() * 0.45}s`;
+    piece.style.animationDuration = `${1.8 + Math.random() * 1.4}s`;
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    piece.style.setProperty("--drift", `${Math.random() * 240 - 120}px`);
+    container.append(piece);
+  }
+
+  document.body.append(container);
+  window.setTimeout(() => container.remove(), 3600);
+}
+
+function showGoalToast(text) {
+  const message = document.createElement("div");
+  message.className = "goal-complete-toast";
+  message.textContent = text;
+  document.body.append(message);
+  window.setTimeout(() => message.remove(), 3200);
 }
 
 function renderFixedItems() {

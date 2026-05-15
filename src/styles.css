@@ -1238,6 +1238,72 @@ button.danger {
   margin-top: 0;
 }
 
+.contribution-feedback {
+  margin-bottom: 0;
+  color: var(--green-strong);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.confetti-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.confetti-layer i {
+  position: absolute;
+  top: -1rem;
+  width: 0.65rem;
+  height: 1rem;
+  border-radius: 2px;
+  animation: confetti-fall linear forwards;
+}
+
+.goal-complete-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 1001;
+  transform: translateX(-50%);
+  max-width: min(28rem, calc(100% - 2rem));
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #8bb9a2;
+  border-radius: 10px;
+  background: var(--green);
+  color: #fff;
+  box-shadow: var(--shadow);
+  font-weight: 900;
+  text-align: center;
+  animation: toast-in 0.25s ease;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, -1rem, 0) rotate(0deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift), 110vh, 0) rotate(720deg);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 0.8rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 .progress-track {
   height: 0.7rem;
   overflow: hidden;
