@@ -87,6 +87,25 @@ export function calculateTotals(transactions, range) {
     );
 }
 
+export function summarizeTransactionsByCategory(transactions, range, kind, categoryKey, categories) {
+  const totals = new Map(categories.map((category) => [category.value, 0]));
+
+  for (const transaction of transactions) {
+    if (transaction.kind !== kind || !isWithinRange(transaction.date, range)) continue;
+    const category = transaction[categoryKey] || "other";
+    totals.set(category, (totals.get(category) || 0) + (Number(transaction.amount) || 0));
+  }
+
+  return [...totals.entries()]
+    .map(([value, amount]) => ({
+      value,
+      amount,
+      label: categories.find((category) => category.value === value)?.label || "Sin categoria"
+    }))
+    .filter((row) => row.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+}
+
 export function calculateBudgetProgress(totals, range, currentDate = todayIso()) {
   const income = Number(totals.income) || 0;
   const expense = Number(totals.expense) || 0;

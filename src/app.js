@@ -11,6 +11,7 @@ import {
   incomeCategories,
   investmentNeedsRenewalAlert,
   investmentProducts,
+  summarizeTransactionsByCategory,
   summarizeInvestments,
   todayIso,
   validateDateWindow
@@ -40,6 +41,18 @@ const elements = {
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
   periodSelect: document.querySelector("#periodSelect"),
+  dashboardSavingsAccounts: document.querySelector("#dashboardSavingsAccounts"),
+  dashboardPolicies: document.querySelector("#dashboardPolicies"),
+  dashboardIncome: document.querySelector("#dashboardIncome"),
+  dashboardExpenses: document.querySelector("#dashboardExpenses"),
+  dashboardGoals: document.querySelector("#dashboardGoals"),
+  dashboardAvailable: document.querySelector("#dashboardAvailable"),
+  dashboardExpenseCategories: document.querySelector("#dashboardExpenseCategories"),
+  dashboardIncomeCategories: document.querySelector("#dashboardIncomeCategories"),
+  dashboardInvestmentBreakdown: document.querySelector("#dashboardInvestmentBreakdown"),
+  dashboardInvestmentBars: document.querySelector("#dashboardInvestmentBars"),
+  dashboardGoalsList: document.querySelector("#dashboardGoalsList"),
+  dashboardTip: document.querySelector("#dashboardTip"),
   incomeTotal: document.querySelector("#incomeTotal"),
   expenseTotal: document.querySelector("#expenseTotal"),
   balanceTotal: document.querySelector("#balanceTotal"),
@@ -351,6 +364,7 @@ function render() {
   elements.incomePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
   elements.expensePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
 
+  renderDashboard(range, budgetTransactions, totals);
   renderBudgetPeriodLists(range, budgetTransactions);
   renderBudgetProgress(totals, range);
   renderBudgetHealth(totals);
@@ -526,6 +540,134 @@ function renderBudgetProgress(totals, range) {
   elements.budgetProgressCard.classList.toggle("danger", progress.isOverBudget);
   elements.budgetRemainingCard.classList.toggle("danger", progress.isOverBudget);
   elements.dailyBudgetCard.classList.toggle("danger", progress.isOverBudget);
+}
+
+function renderDashboard(range, budgetTransactions, totals) {
+  const investmentRows = state.investments.map((investment) => ({
+    investment,
+    result: calculateInvestment(investment)
+  }));
+  const policiesTotal = investmentRows
+    .filter((row) => (row.investment.productType || "policy") === "policy")
+    .reduce((sum, row) => sum + row.result.finalAmount, 0);
+  const savingsAccountsTotal = investmentRows
+    .filter((row) => ["programmed_savings", "flexible_savings"].includes(row.investment.productType))
+    .reduce((sum, row) => sum + row.result.finalAmount, 0);
+  const goalsTarget = state.goals.reduce((sum, goal) => sum + (Number(goal.target) || 0), 0);
+  const goalsSaved = state.goals.reduce((sum, goal) => sum + (Number(goal.saved) || 0), 0);
+
+  elements.dashboardSavingsAccounts.textContent = currency(savingsAccountsTotal);
+  elements.dashboardPolicies.textContent = currency(policiesTotal);
+  elements.dashboardIncome.textContent = currency(totals.income);
+  elements.dashboardExpenses.textContent = currency(totals.expense);
+  elements.dashboardGoals.textContent = currency(Math.max(goalsTarget - goalsSaved, 0));
+  elements.dashboardAvailable.textContent = currency(totals.balance);
+
+  renderDashboardCategoryRows(
+    elements.dashboardExpenseCategories,
+    summarizeTransactionsByCategory(budgetTransactions, range, "expense", "expenseCategory", expenseCategories),
+    totals.expense,
+    "expense"
+  );
+  renderDashboardCategoryRows(
+    elements.dashboardIncomeCategories,
+    summarizeTransactionsByCategory(budgetTransactions, range, "income", "incomeCategory", incomeCategories),
+    totals.income,
+    "income"
+  );
+  renderDashboardInvestments(investmentRows);
+  renderDashboardGoals();
+  renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows);
+}
+
+function renderDashboardCategoryRows(container, rows, total, tone) {
+  container.replaceChildren();
+
+  if (rows.length === 0) {
+    container.append(emptyState("Aun no hay datos para este periodo."));
+    return;
+  }
+
+  for (const row of rows.slice(0, 6)) {
+    const percent = total > 0 ? Math.min((row.amount / total) * 100, 100) : 0;
+    const item = document.createElement("div");
+    item.className = `dashboard-category-row ${tone}`;
+    item.innerHTML = `
+      <div>
+        <strong>${escapeHtml(row.label)}</strong>
+        <span>${currency(row.amount)}</span>
+      </div>
+      <div class="dashboard-bar"><span style="width: ${percent}%"></span></div>
+    `;
+    container.append(item);
+  }
+}
+
+function renderDashboardInvestments(rows) {
+  const groups = investmentProducts.map((product) => {
+    const amount = rows
+      .filter((row) => (row.investment.productType || "policy") === product.value)
+      .reduce((sum, row) => sum + row.result.finalAmount, 0);
+    return { ...product, amount };
+  });
+  const maxAmount = Math.max(...groups.map((group) => group.amount), 1);
+
+  elements.dashboardInvestmentBreakdown.replaceChildren();
+  elements.dashboardInvestmentBars.replaceChildren();
+
+  if (rows.length === 0) {
+    elements.dashboardInvestmentBreakdown.append(emptyState("Aun no hay inversiones registradas."));
+    return;
+  }
+
+  for (const group of groups.filter((item) => item.amount > 0)) {
+    const item = document.createElement("div");
+    item.className = "dashboard-split-row";
+    item.innerHTML = `<span>${escapeHtml(group.label)}</span><strong>${currency(group.amount)}</strong>`;
+    elements.dashboardInvestmentBreakdown.append(item);
+
+    const bar = document.createElement("span");
+    bar.style.height = `${Math.max((group.amount / maxAmount) * 100, 12)}%`;
+    bar.title = `${group.label}: ${currency(group.amount)}`;
+    elements.dashboardInvestmentBars.append(bar);
+  }
+}
+
+function renderDashboardGoals() {
+  elements.dashboardGoalsList.replaceChildren();
+
+  if (state.goals.length === 0) {
+    elements.dashboardGoalsList.append(emptyState("Aun no hay compras futuras."));
+    return;
+  }
+
+  for (const goal of state.goals.slice(0, 4)) {
+    const progress = goal.target > 0 ? Math.min(((goal.saved || 0) / goal.target) * 100, 100) : 0;
+    const item = document.createElement("article");
+    item.className = "dashboard-goal-card";
+    item.innerHTML = `
+      <span>${Math.round(progress)}%</span>
+      <strong>${escapeHtml(goal.name)}</strong>
+      <small>Meta: ${currency(goal.target)}</small>
+      <div class="dashboard-bar"><span style="width: ${progress}%"></span></div>
+    `;
+    elements.dashboardGoalsList.append(item);
+  }
+}
+
+function renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows) {
+  const savingsProgress = goalsTarget > 0 ? Math.min((goalsSaved / goalsTarget) * 100, 100) : 0;
+  const investmentTotal = investmentRows.reduce((sum, row) => sum + row.result.finalAmount, 0);
+
+  if (totals.expense > totals.income && totals.income > 0) {
+    elements.dashboardTip.textContent = "Tus gastos superan los ingresos del periodo. Revisa las categorias con barras mas largas para ajustar rapido.";
+  } else if (investmentTotal > 0) {
+    elements.dashboardTip.textContent = `Tu cartera proyectada suma ${currency(investmentTotal)}. Revisa vencimientos para reinvertir sin perder continuidad.`;
+  } else if (savingsProgress > 0) {
+    elements.dashboardTip.textContent = `Tus compras futuras van al ${savingsProgress.toFixed(0)}%. Mantener el ahorro mensual acelera la meta.`;
+  } else {
+    elements.dashboardTip.textContent = "Registra ingresos, gastos, inversiones y compras futuras para convertir este panel en tu centro de control.";
+  }
 }
 
 function updateLiquiditySettings() {

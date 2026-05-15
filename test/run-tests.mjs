@@ -8,6 +8,7 @@ import {
   getPeriodRange,
   investmentNeedsRenewalAlert,
   summarizeInvestments,
+  summarizeTransactionsByCategory,
   validateDateWindow
 } from "../src/finance.js";
 import {
@@ -147,6 +148,32 @@ const tests = [
       assert.equal(transactions.length, 1);
       assert.equal(transactions[0].category, "fixed");
       assert.equal(transactions[0].expenseCategory, "housing");
+    }
+  },
+  {
+    name: "resume transacciones por categoria para dashboard",
+    run() {
+      const range = getPeriodRange("2026-05-09", "monthly");
+      const rows = summarizeTransactionsByCategory(
+        [
+          { kind: "expense", amount: 100, expenseCategory: "food", date: "2026-05-01" },
+          { kind: "expense", amount: 50, expenseCategory: "food", date: "2026-05-03" },
+          { kind: "expense", amount: 90, expenseCategory: "health", date: "2026-05-04" },
+          { kind: "income", amount: 500, incomeCategory: "salary", date: "2026-05-05" }
+        ],
+        range,
+        "expense",
+        "expenseCategory",
+        [
+          { value: "food", label: "Comida" },
+          { value: "health", label: "Salud" }
+        ]
+      );
+
+      assert.deepEqual(rows, [
+        { value: "food", label: "Comida", amount: 150 },
+        { value: "health", label: "Salud", amount: 90 }
+      ]);
     }
   },
   {

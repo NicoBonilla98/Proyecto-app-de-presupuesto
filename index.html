@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260514-3" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260514-4" />
   </head>
   <body>
     <header class="app-header">
@@ -28,14 +28,99 @@
 
     <main class="app-shell">
       <nav class="tab-nav" aria-label="Secciones principales">
-        <button type="button" class="tab-button active" data-tab-target="budgetTab">Presupuesto</button>
+        <button type="button" class="tab-button active" data-tab-target="dashboardTab">Dashboard</button>
+        <button type="button" class="tab-button" data-tab-target="budgetTab">Presupuesto</button>
         <button type="button" class="tab-button" data-tab-target="goalsTab">Compras futuras</button>
         <button type="button" class="tab-button" data-tab-target="investmentsTab">Inversiones</button>
         <button type="button" class="tab-button" data-tab-target="liquidityTab">Capacidad</button>
         <button type="button" class="tab-button" data-tab-target="calendarTab">Calendario</button>
       </nav>
 
-      <section id="budgetTab" class="tab-panel active">
+      <section id="dashboardTab" class="tab-panel active">
+        <section class="module-hero">
+          <div>
+            <p class="eyebrow">Vista general</p>
+            <h2>Dashboard financiero</h2>
+            <p>Resumen grafico de tu presupuesto, inversiones y compras futuras.</p>
+          </div>
+        </section>
+
+        <section class="summary-grid dashboard-metrics" aria-label="Resumen del dashboard">
+          <article class="metric investment">
+            <span>Cuentas de ahorro</span>
+            <strong id="dashboardSavingsAccounts">$0.00</strong>
+          </article>
+          <article class="metric savings">
+            <span>Polizas</span>
+            <strong id="dashboardPolicies">$0.00</strong>
+          </article>
+          <article class="metric income">
+            <span>Ingresos periodo</span>
+            <strong id="dashboardIncome">$0.00</strong>
+          </article>
+          <article class="metric expense">
+            <span>Gastos periodo</span>
+            <strong id="dashboardExpenses">$0.00</strong>
+          </article>
+          <article class="metric balance">
+            <span>Compras pendientes</span>
+            <strong id="dashboardGoals">$0.00</strong>
+          </article>
+          <article class="metric balance">
+            <span>Disponible</span>
+            <strong id="dashboardAvailable">$0.00</strong>
+          </article>
+        </section>
+
+        <section class="dashboard-layout">
+          <div class="dashboard-column">
+            <article class="panel dashboard-panel">
+              <div class="panel-heading">
+                <h2>Gastos por categoria</h2>
+                <p>Distribucion del periodo seleccionado.</p>
+              </div>
+              <div id="dashboardExpenseCategories" class="dashboard-category-list"></div>
+            </article>
+
+            <article class="panel dashboard-panel">
+              <div class="panel-heading">
+                <h2>Ingresos por categoria</h2>
+                <p>Origen de los ingresos del periodo.</p>
+              </div>
+              <div id="dashboardIncomeCategories" class="dashboard-category-list"></div>
+            </article>
+
+            <article class="panel dashboard-panel">
+              <div class="panel-heading">
+                <h2>Compras futuras</h2>
+                <p>Avance de las metas registradas.</p>
+              </div>
+              <div id="dashboardGoalsList" class="dashboard-goals-grid"></div>
+            </article>
+          </div>
+
+          <div class="dashboard-column">
+            <article class="panel dashboard-panel investment-dashboard-card">
+              <div class="panel-heading">
+                <h2>Inversiones</h2>
+                <p>Resumen de cartera por producto.</p>
+              </div>
+              <div id="dashboardInvestmentBreakdown" class="dashboard-split-list"></div>
+              <div id="dashboardInvestmentBars" class="dashboard-mini-chart" aria-label="Grafico de inversiones"></div>
+            </article>
+
+            <article class="dashboard-advice-card">
+              <div>
+                <p class="eyebrow">Consejo financiero</p>
+                <h2>Recomendacion</h2>
+              </div>
+              <p id="dashboardTip">Registra datos para ver recomendaciones.</p>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section id="budgetTab" class="tab-panel">
         <section class="summary-grid" aria-label="Resumen financiero">
           <article class="metric income">
             <span>Ingresos</span>
