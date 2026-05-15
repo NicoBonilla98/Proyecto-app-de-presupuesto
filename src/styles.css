@@ -458,6 +458,41 @@ select {
   line-height: 1.45;
 }
 
+.dashboard-alert-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-alert {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  background: #f8fafb;
+}
+
+.dashboard-alert strong {
+  color: var(--ink);
+}
+
+.dashboard-alert p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.dashboard-alert.warning {
+  border-left-color: var(--yellow);
+  background: #fff8e9;
+}
+
+.dashboard-alert.danger {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+
 .budget-status-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);

@@ -53,6 +53,7 @@ const elements = {
   dashboardInvestmentBars: document.querySelector("#dashboardInvestmentBars"),
   dashboardGoalsList: document.querySelector("#dashboardGoalsList"),
   dashboardTip: document.querySelector("#dashboardTip"),
+  dashboardAlerts: document.querySelector("#dashboardAlerts"),
   incomeTotal: document.querySelector("#incomeTotal"),
   expenseTotal: document.querySelector("#expenseTotal"),
   balanceTotal: document.querySelector("#balanceTotal"),
@@ -578,6 +579,7 @@ function renderDashboard(range, budgetTransactions, totals) {
   renderDashboardInvestments(investmentRows);
   renderDashboardGoals();
   renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows);
+  renderDashboardAlerts();
 }
 
 function renderDashboardCategoryRows(container, rows, total, tone) {
@@ -668,6 +670,109 @@ function renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows) {
   } else {
     elements.dashboardTip.textContent = "Registra ingresos, gastos, inversiones y compras futuras para convertir este panel en tu centro de control.";
   }
+}
+
+function renderDashboardAlerts() {
+  const alerts = buildSmartAlerts();
+  elements.dashboardAlerts.replaceChildren();
+
+  if (alerts.length === 0) {
+    elements.dashboardAlerts.append(emptyState("Sin alertas importantes por ahora."));
+    return;
+  }
+
+  for (const alert of alerts) {
+    const item = document.createElement("article");
+    item.className = `dashboard-alert ${alert.tone}`;
+    item.innerHTML = `
+      <strong>${escapeHtml(alert.title)}</strong>
+      <p>${escapeHtml(alert.message)}</p>
+    `;
+    elements.dashboardAlerts.append(item);
+  }
+}
+
+function buildSmartAlerts(currentDate = todayIso()) {
+  return [
+    ...buildExpenseChangeAlerts(currentDate),
+    ...buildPolicyRenewalAlerts(currentDate),
+    ...buildLiquiditySafetyAlerts(currentDate)
+  ].slice(0, 6);
+}
+
+function buildExpenseChangeAlerts(currentDate) {
+  const currentRange = getPeriodRange(currentDate, "monthly");
+  const previousRange = previousMonthRange(currentRange.start);
+  const currentTransactions = getBudgetTransactions(currentRange);
+  const previousTransactions = getBudgetTransactions(previousRange);
+  const currentRows = summarizeTransactionsByCategory(
+    currentTransactions,
+    currentRange,
+    "expense",
+    "expenseCategory",
+    expenseCategories
+  );
+  const previousRows = summarizeTransactionsByCategory(
+    previousTransactions,
+    previousRange,
+    "expense",
+    "expenseCategory",
+    expenseCategories
+  );
+  const previousByCategory = new Map(previousRows.map((row) => [row.value, row.amount]));
+
+  return currentRows
+    .map((row) => {
+      const previousAmount = previousByCategory.get(row.value) || 0;
+      const increase = previousAmount > 0 ? ((row.amount - previousAmount) / previousAmount) * 100 : 0;
+      return { ...row, previousAmount, increase };
+    })
+    .filter((row) => row.increase >= 25)
+    .slice(0, 3)
+    .map((row) => ({
+      tone: "warning",
+      title: "Gasto en aumento",
+      message: `Tu gasto en ${row.label.toLowerCase()} subio ${row.increase.toFixed(0)}% respecto al mes anterior.`
+    }));
+}
+
+function buildPolicyRenewalAlerts(currentDate) {
+  return state.investments
+    .filter((investment) => investmentNeedsRenewalAlert(investment, currentDate))
+    .sort((a, b) => a.endDate.localeCompare(b.endDate))
+    .slice(0, 3)
+    .map((investment) => {
+      const result = calculateInvestment(investment, currentDate);
+      return {
+        tone: "warning",
+        title: "Poliza por vencer",
+        message: `${investment.alias || investment.name} vence en ${result.daysRemaining} dia(s). Revisa si necesitas renovarla.`
+      };
+    });
+}
+
+function buildLiquiditySafetyAlerts(currentDate) {
+  const result = calculateInvestmentCapacity(
+    {
+      transactions: state.transactions,
+      fixedItems: state.fixedItems,
+      goals: state.goals,
+      investments: state.investments
+    },
+    {
+      ...state.liquiditySettings,
+      startDate: currentDate
+    }
+  );
+
+  return result.projections
+    .filter((month) => month.projectedCash < result.safetyNet)
+    .slice(0, 2)
+    .map((month) => ({
+      tone: "danger",
+      title: "Liquidez bajo safety net",
+      message: `Tu liquidez cae bajo la safety net en ${month.label}. Proyectado: ${currency(month.projectedCash)}.`
+    }));
 }
 
 function updateLiquiditySettings() {
@@ -1535,6 +1640,12 @@ function addDaysIso(date, days) {
   const value = new Date(`${date}T00:00:00`);
   value.setDate(value.getDate() + days);
   return toIsoDate(value);
+}
+
+function previousMonthRange(date) {
+  const value = new Date(`${date}T00:00:00`);
+  value.setMonth(value.getMonth() - 1);
+  return getPeriodRange(toIsoDate(value), "monthly");
 }
 
 async function hydrateServerState() {
