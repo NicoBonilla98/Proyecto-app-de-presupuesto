@@ -8,6 +8,7 @@ import {
   expenseCategories,
   generateFixedTransactions,
   getPeriodRange,
+  householdMembers,
   incomeCategories,
   investmentNeedsRenewalAlert,
   investmentProducts,
@@ -67,6 +68,7 @@ const elements = {
   incomeEditMode: document.querySelector("#incomeEditMode"),
   incomeType: document.querySelector("#incomeType"),
   incomeCategory: document.querySelector("#incomeCategory"),
+  incomeHouseholdMember: document.querySelector("#incomeHouseholdMember"),
   incomeDescription: document.querySelector("#incomeDescription"),
   incomeAmount: document.querySelector("#incomeAmount"),
   incomeDateField: document.querySelector("#incomeDateField"),
@@ -82,6 +84,7 @@ const elements = {
   expenseEditMode: document.querySelector("#expenseEditMode"),
   expenseType: document.querySelector("#expenseType"),
   expenseCategory: document.querySelector("#expenseCategory"),
+  expenseHouseholdMember: document.querySelector("#expenseHouseholdMember"),
   expenseDescription: document.querySelector("#expenseDescription"),
   expenseAmount: document.querySelector("#expenseAmount"),
   expenseDateField: document.querySelector("#expenseDateField"),
@@ -418,6 +421,7 @@ function handleBudgetSubmit(event, kind) {
       frequency: elements[`${kind}Frequency`].value,
       description,
       amount,
+      householdMember: elements[`${kind}HouseholdMember`].value,
       incomeCategory: kind === "income" ? elements.incomeCategory.value : undefined,
       expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
       startDate: elements[`${kind}StartDate`].value
@@ -442,6 +446,7 @@ function handleBudgetSubmit(event, kind) {
       category: type,
       incomeCategory: kind === "income" ? elements.incomeCategory.value : undefined,
       expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
+      householdMember: elements[`${kind}HouseholdMember`].value,
       description,
       amount,
       date: elements[`${kind}Date`].value
@@ -487,6 +492,8 @@ function renderBudgetKindList(kind, range, budgetTransactions) {
     item.innerHTML = `
       <div>
         <strong>${escapeHtml(transaction.description)}</strong>
+        <span>Responsable: ${memberLabel(transaction.householdMember)}</span>
+        <span>Responsable: ${memberLabel(transaction.householdMember)}</span>
         <span>${categoryLabel(transaction)} · ${formatDate(transaction.date)}${transaction.fixedSource ? " · automatico" : ""}</span>
       </div>
       <div class="item-actions">
@@ -1030,6 +1037,7 @@ function renderFixedItems() {
     row.innerHTML = `
       <div>
         <strong>${escapeHtml(item.description)}</strong>
+        <span>Responsable: ${memberLabel(item.householdMember)}</span>
         <span>${item.kind === "income" ? "Ingreso fijo" : "Gasto fijo"} · ${frequencyLabel(item.frequency)} · desde ${formatDate(item.startDate)}</span>
       </div>
       <div class="item-actions">
@@ -1244,6 +1252,7 @@ function editTransaction(id) {
   if (kind === "expense") {
     elements.expenseCategory.value = transaction.expenseCategory || "other";
   }
+  elements[`${kind}HouseholdMember`].value = transaction.householdMember || "home";
   elements[`${kind}Description`].value = transaction.description;
   elements[`${kind}Amount`].value = transaction.amount;
   elements[`${kind}Date`].value = transaction.date;
@@ -1282,6 +1291,7 @@ function editFixedItem(id) {
   if (kind === "expense") {
     elements.expenseCategory.value = fixedItem.expenseCategory || "other";
   }
+  elements[`${kind}HouseholdMember`].value = fixedItem.householdMember || "home";
   elements[`${kind}Description`].value = fixedItem.description;
   elements[`${kind}Amount`].value = fixedItem.amount;
   elements[`${kind}StartDate`].value = todayIso();
@@ -1343,6 +1353,7 @@ function resetBudgetForm(kind) {
   if (kind === "expense") {
     elements.expenseCategory.value = "food";
   }
+  elements[`${kind}HouseholdMember`].value = "home";
   elements[`${kind}Date`].value = todayIso();
   elements[`${kind}StartDate`].value = todayIso();
   elements[`${kind}StartDate`].setCustomValidity("");
@@ -1653,6 +1664,10 @@ function categoryLabel(transaction) {
     expenseCategories.find((category) => category.value === transaction.expenseCategory)?.label || "Sin categoria";
 
   return `${expenseType} · ${expenseCategory}`;
+}
+
+function memberLabel(member = "home") {
+  return householdMembers.find((item) => item.value === member)?.label || "Casa";
 }
 
 function periodName(period) {

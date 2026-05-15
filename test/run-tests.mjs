@@ -114,6 +114,7 @@ const tests = [
             frequency: "monthly",
             description: "Sueldo",
             amount: 1200,
+            householdMember: "dad",
             incomeCategory: "salary",
             startDate: "2026-05-01"
           }
@@ -123,6 +124,7 @@ const tests = [
 
       assert.equal(transactions.length, 1);
       assert.equal(transactions[0].category, "fixed");
+      assert.equal(transactions[0].householdMember, "dad");
       assert.equal(transactions[0].incomeCategory, "salary");
     }
   },
@@ -138,6 +140,7 @@ const tests = [
             frequency: "monthly",
             description: "Arriendo",
             amount: 500,
+            householdMember: "home",
             expenseCategory: "housing",
             startDate: "2026-05-01"
           }
@@ -147,6 +150,7 @@ const tests = [
 
       assert.equal(transactions.length, 1);
       assert.equal(transactions[0].category, "fixed");
+      assert.equal(transactions[0].householdMember, "home");
       assert.equal(transactions[0].expenseCategory, "housing");
     }
   },

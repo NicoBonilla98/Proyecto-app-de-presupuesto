@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260515-2" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260515-3" />
   </head>
   <body>
     <header class="app-header">
@@ -258,6 +258,16 @@
             </label>
 
             <label>
+              Responsable
+              <select id="incomeHouseholdMember" required>
+                <option value="home">Casa</option>
+                <option value="dad">Papa</option>
+                <option value="mom">Mama</option>
+                <option value="child">Hijo</option>
+              </select>
+            </label>
+
+            <label>
               Descripcion
               <input id="incomeDescription" type="text" placeholder="Ej. salario, bono, venta" required />
             </label>
@@ -333,6 +343,16 @@
                 <option value="shopping">Compras</option>
                 <option value="emergency">Emergencias</option>
                 <option value="other">Otros</option>
+              </select>
+            </label>
+
+            <label>
+              Responsable
+              <select id="expenseHouseholdMember" required>
+                <option value="home">Casa</option>
+                <option value="dad">Papa</option>
+                <option value="mom">Mama</option>
+                <option value="child">Hijo</option>
               </select>
             </label>
 

@@ -25,6 +25,13 @@ export const expenseCategories = [
   { value: "other", label: "Otros" }
 ];
 
+export const householdMembers = [
+  { value: "dad", label: "Papa" },
+  { value: "mom", label: "Mama" },
+  { value: "child", label: "Hijo" },
+  { value: "home", label: "Casa" }
+];
+
 export const investmentProducts = [
   { value: "policy", label: "Poliza" },
   { value: "programmed_savings", label: "Cuenta de ahorro programado" },
@@ -153,6 +160,7 @@ export function generateFixedTransactions(fixedItems, range) {
       category: "fixed",
       description: item.description,
       amount: Number(item.amount) || 0,
+      householdMember: item.householdMember || "home",
       incomeCategory: item.kind === "income" ? item.incomeCategory || "other" : undefined,
       expenseCategory: item.kind === "expense" ? item.expenseCategory || "other" : undefined,
       date
