@@ -1061,10 +1061,21 @@ function renderGoals() {
           <span>Meta: ${currency(goal.target)} · Fecha: ${formatDate(goal.targetDate)}</span>
         </div>
         <div class="item-actions">
+          <button type="button" data-contribute-goal="${goal.id}">Abonar</button>
           <button type="button" data-edit-goal="${goal.id}">Editar</button>
           <button type="button" data-delete-goal="${goal.id}">Eliminar</button>
         </div>
       </div>
+      <form class="goal-contribution-form is-hidden" data-contribution-form="${goal.id}">
+        <label>
+          Cuanto quieres abonar hacia la meta
+          <input type="number" min="0" step="0.01" placeholder="0.00" required />
+        </label>
+        <div class="button-row">
+          <button type="submit" class="primary">Guardar abono</button>
+          <button type="button" class="ghost" data-cancel-contribution="${goal.id}">Cancelar</button>
+        </div>
+      </form>
       <div class="progress-track" aria-label="Progreso de ahorro">
         <span style="width: ${progress}%"></span>
       </div>
@@ -1079,6 +1090,18 @@ function renderGoals() {
     elements.goalList.append(item);
   }
 
+  elements.goalList.querySelectorAll("[data-contribute-goal]").forEach((button) => {
+    button.addEventListener("click", () => toggleGoalContributionForm(button.dataset.contributeGoal, true));
+  });
+
+  elements.goalList.querySelectorAll("[data-cancel-contribution]").forEach((button) => {
+    button.addEventListener("click", () => toggleGoalContributionForm(button.dataset.cancelContribution, false));
+  });
+
+  elements.goalList.querySelectorAll("[data-contribution-form]").forEach((form) => {
+    form.addEventListener("submit", handleGoalContribution);
+  });
+
   elements.goalList.querySelectorAll("[data-edit-goal]").forEach((button) => {
     button.addEventListener("click", () => editGoal(button.dataset.editGoal));
   });
@@ -1086,6 +1109,34 @@ function renderGoals() {
   elements.goalList.querySelectorAll("[data-delete-goal]").forEach((button) => {
     button.addEventListener("click", () => removeItem(state.goals, button.dataset.deleteGoal));
   });
+}
+
+function toggleGoalContributionForm(goalId, shouldShow) {
+  const form = elements.goalList.querySelector(`[data-contribution-form="${goalId}"]`);
+  if (!form) return;
+
+  form.classList.toggle("is-hidden", !shouldShow);
+  const input = form.querySelector("input");
+  if (shouldShow) {
+    input.value = "";
+    input.focus();
+  }
+}
+
+function handleGoalContribution(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const goal = state.goals.find((item) => item.id === form.dataset.contributionForm);
+  const input = form.querySelector("input");
+  const amount = Number(input.value);
+
+  if (!goal || amount <= 0) return;
+
+  goal.saved = Math.min((Number(goal.saved) || 0) + amount, Number(goal.target) || 0);
+  goal.updatedAt = new Date().toISOString();
+  persist();
+  render();
 }
 
 function renderFixedItems() {
