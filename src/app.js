@@ -31,6 +31,7 @@ let isSavingServerState = false;
 let pendingServerSave = false;
 let syncRetryTimer = null;
 let lastSyncedFingerprint = "";
+let lastSyncError = "";
 let investmentInterestEdited = false;
 let currentExtraContributions = [];
 let goalToastQueue = Promise.resolve();
@@ -2068,7 +2069,8 @@ async function hydrateServerState() {
 
     applyServerState(serverState, !hasSavedLocalState);
     queueServerSave();
-  } catch {
+  } catch (error) {
+    reportSyncError("hydrate", error);
     updateSyncStatus("offline");
     scheduleServerRetry();
   }
@@ -2094,24 +2096,15 @@ async function syncFromServer() {
     } else {
       updateSyncStatus("synced");
     }
-  } catch {
+  } catch (error) {
+    reportSyncError("refresh", error);
     updateSyncStatus("offline");
     scheduleServerRetry();
   }
 }
 
 async function readServerState() {
-  const response = await fetch(apiUrl("/api/state"), { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("No se pudo leer la copia central.");
-  }
-
-  const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    throw new Error("La copia central no respondio JSON.");
-  }
-
-  const serverState = await response.json();
+  const serverState = await requestJson("/api/state", { method: "GET" });
   return serverState && typeof serverState === "object" ? serverState : {};
 }
 
@@ -2133,17 +2126,12 @@ function applyServerState(serverState, preferServer) {
 async function saveServerState() {
   const latest = await readServerState();
   const mergedState = mergeStateCopies(state, latest);
-  const response = await fetch(apiUrl("/api/state"), {
+  const savedState = await requestJson("/api/state", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(mergedState)
   });
 
-  if (!response.ok) {
-    throw new Error("No se pudo guardar la copia central.");
-  }
-
-  const savedState = await response.json();
   if (!hasAllSharedRecords(mergedState, savedState)) {
     throw new Error("La copia central no confirmo todos los registros.");
   }
@@ -2152,6 +2140,57 @@ async function saveServerState() {
   persistLocalState();
   lastSyncedFingerprint = stateFingerprint(state);
   updateSyncStatus("synced");
+}
+
+async function requestJson(path, options = {}) {
+  const url = apiUrl(path);
+  if (shouldUseNativeHttp()) {
+    return requestJsonWithNativeHttp(url, options);
+  }
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    ...options
+  });
+  if (!response.ok) {
+    throw new Error(`Servidor respondio ${response.status} en ${url}.`);
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(`La copia central no respondio JSON en ${url}.`);
+  }
+
+  return response.json();
+}
+
+async function requestJsonWithNativeHttp(url, options = {}) {
+  const method = options.method || "GET";
+  const response = await window.CapacitorHttp.request({
+    url,
+    method,
+    headers: options.headers || {},
+    data: options.body,
+    responseType: "json",
+    connectTimeout: 10000,
+    readTimeout: 10000
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Servidor respondio ${response.status} en ${url}.`);
+  }
+
+  return parseJsonData(response.data);
+}
+
+function parseJsonData(data) {
+  if (data == null || data === "") return {};
+  if (typeof data === "string") return JSON.parse(data);
+  return data;
+}
+
+function shouldUseNativeHttp() {
+  return Boolean(isMobileAppShell() && window.CapacitorHttp?.request);
 }
 
 function apiUrl(path) {
@@ -2163,12 +2202,22 @@ function getSyncServerUrl() {
   const savedUrl = localStorage.getItem(syncServerUrlKey);
   if (savedUrl) return savedUrl.replace(/\/$/, "");
 
-  const isNativeMobileShell =
-    window.Capacitor?.isNativePlatform?.() ||
-    window.location.protocol === "capacitor:" ||
-    window.location.protocol === "ionic:";
+  return isMobileAppShell() ? defaultMobileSyncServerUrl : "";
+}
 
-  return isNativeMobileShell ? defaultMobileSyncServerUrl : "";
+function isMobileAppShell() {
+  const isCapacitorLocalhost =
+    window.location.hostname === "localhost" &&
+    !window.location.port &&
+    (window.location.protocol === "https:" || window.location.protocol === "http:");
+
+  return Boolean(
+    window.Capacitor?.isNativePlatform?.() ||
+      window.Capacitor?.getPlatform?.() === "android" ||
+      window.location.protocol === "capacitor:" ||
+      window.location.protocol === "ionic:" ||
+      isCapacitorLocalhost
+  );
 }
 
 function queueServerSave() {
@@ -2187,13 +2236,23 @@ async function flushServerSave() {
 
   try {
     await saveServerState();
-  } catch {
+  } catch (error) {
     pendingServerSave = true;
+    reportSyncError("save", error);
     updateSyncStatus("offline");
     scheduleServerRetry();
   } finally {
     isSavingServerState = false;
   }
+}
+
+function reportSyncError(context, error) {
+  lastSyncError = error instanceof Error ? error.message : String(error);
+  console.warn(`Sync ${context} failed`, {
+    endpoint: apiUrl("/api/state"),
+    nativeHttp: shouldUseNativeHttp(),
+    error: lastSyncError
+  });
 }
 
 function scheduleServerRetry() {
@@ -2212,6 +2271,9 @@ function scheduleServerRetry() {
 
 function updateSyncStatus(status) {
   if (!elements.syncStatus) return;
+  if (status === "synced") {
+    lastSyncError = "";
+  }
 
   const labels = {
     syncing: "Sincronizando",
@@ -2222,6 +2284,10 @@ function updateSyncStatus(status) {
 
   elements.syncStatus.textContent = labels[status] || labels.local;
   elements.syncStatus.className = `sync-status ${status}`;
+  elements.syncStatus.title =
+    status === "offline" && lastSyncError
+      ? `No se pudo sincronizar con ${apiUrl("/api/state")}. ${lastSyncError}`
+      : `Servidor de sincronizacion: ${apiUrl("/api/state") || "/api/state"}`;
 }
 
 function syncControlsFromState() {
