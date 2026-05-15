@@ -310,6 +310,22 @@ select {
   font-size: clamp(1.35rem, 2.4vw, 1.75rem);
 }
 
+.dashboard-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.dashboard-filter-bar label {
+  margin-bottom: 0;
+}
+
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(20rem, 0.88fr);
@@ -382,6 +398,28 @@ select {
 .dashboard-split-row strong {
   color: var(--muted);
   font-weight: 800;
+}
+
+.category-delta {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  padding: 0.18rem 0.4rem;
+  border-radius: 999px;
+  background: #eef3f2;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.category-delta.up {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.category-delta.down {
+  background: var(--green-soft);
+  color: var(--green-strong);
 }
 
 .dashboard-bar {
@@ -1421,6 +1459,7 @@ button.danger {
   .summary-grid,
   .budget-status-layout,
   .dashboard-metrics,
+  .dashboard-filter-bar,
   .dashboard-layout,
   .workspace,
   .content-grid,

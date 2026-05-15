@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260515-3" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260515-4" />
   </head>
   <body>
     <header class="app-header">
@@ -43,6 +43,17 @@
             <h2>Dashboard financiero</h2>
             <p>Resumen grafico de tu presupuesto, inversiones y compras futuras.</p>
           </div>
+        </section>
+
+        <section class="dashboard-filter-bar" aria-label="Filtros de historial financiero">
+          <label>
+            Mes analizado
+            <input id="dashboardMonth" type="month" />
+          </label>
+          <label>
+            Comparar con
+            <input id="dashboardCompareMonth" type="month" />
+          </label>
         </section>
 
         <section class="summary-grid dashboard-metrics" aria-label="Resumen del dashboard">

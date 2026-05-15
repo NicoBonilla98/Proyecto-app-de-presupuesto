@@ -36,12 +36,18 @@ const calendarState = {
   year: new Date().getFullYear(),
   month: new Date().getMonth()
 };
+const dashboardState = {
+  month: todayIso().slice(0, 7),
+  compareMonth: previousMonthKey(todayIso())
+};
 
 const elements = {
   tabButtons: document.querySelectorAll("[data-tab-target]"),
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
   periodSelect: document.querySelector("#periodSelect"),
+  dashboardMonth: document.querySelector("#dashboardMonth"),
+  dashboardCompareMonth: document.querySelector("#dashboardCompareMonth"),
   dashboardSavingsAccounts: document.querySelector("#dashboardSavingsAccounts"),
   dashboardPolicies: document.querySelector("#dashboardPolicies"),
   dashboardIncome: document.querySelector("#dashboardIncome"),
@@ -185,6 +191,8 @@ elements.investmentStartDate.value = todayIso();
 elements.investmentEndDate.value = todayIso();
 elements.extraContributionDate.value = todayIso();
 elements.periodSelect.value = state.period;
+elements.dashboardMonth.value = dashboardState.month;
+elements.dashboardCompareMonth.value = dashboardState.compareMonth;
 
 updateBudgetFormFields("income");
 updateBudgetFormFields("expense");
@@ -205,6 +213,18 @@ elements.tabButtons.forEach((button) => {
 elements.periodSelect.addEventListener("change", () => {
   state.period = elements.periodSelect.value;
   persist();
+  render();
+});
+elements.dashboardMonth.addEventListener("change", () => {
+  dashboardState.month = elements.dashboardMonth.value || todayIso().slice(0, 7);
+  if (!elements.dashboardCompareMonth.value) {
+    dashboardState.compareMonth = previousMonthKey(`${dashboardState.month}-01`);
+    elements.dashboardCompareMonth.value = dashboardState.compareMonth;
+  }
+  render();
+});
+elements.dashboardCompareMonth.addEventListener("change", () => {
+  dashboardState.compareMonth = elements.dashboardCompareMonth.value || previousMonthKey(`${dashboardState.month}-01`);
   render();
 });
 
@@ -362,6 +382,10 @@ function render() {
   const range = getPeriodRange(todayIso(), state.period);
   const budgetTransactions = getBudgetTransactions(range);
   const totals = calculateTotals(budgetTransactions, range);
+  const dashboardRange = monthRangeFromKey(dashboardState.month);
+  const dashboardTransactions = getBudgetTransactions(dashboardRange);
+  const dashboardTotals = calculateTotals(dashboardTransactions, dashboardRange);
+  const dashboardCompareRange = monthRangeFromKey(dashboardState.compareMonth);
   const mainGoal = state.goals[0];
   const savingPlan = mainGoal ? calculateSavingsPlan(mainGoal, "monthly") : { amount: 0 };
 
@@ -372,7 +396,7 @@ function render() {
   elements.incomePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
   elements.expensePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
 
-  renderDashboard(range, budgetTransactions, totals);
+  renderDashboard(dashboardRange, dashboardTransactions, dashboardTotals, dashboardCompareRange);
   renderBudgetPeriodLists(range, budgetTransactions);
   renderBudgetProgress(totals, range);
   renderBudgetHealth(totals);
@@ -554,7 +578,7 @@ function renderBudgetProgress(totals, range) {
   elements.dailyBudgetCard.classList.toggle("danger", progress.isOverBudget);
 }
 
-function renderDashboard(range, budgetTransactions, totals) {
+function renderDashboard(range, budgetTransactions, totals, compareRange) {
   const investmentRows = state.investments.map((investment) => ({
     investment,
     result: calculateInvestment(investment)
@@ -576,28 +600,45 @@ function renderDashboard(range, budgetTransactions, totals) {
   elements.dashboardAvailable.textContent = currency(totals.balance);
   const expenseRows = summarizeTransactionsByCategory(budgetTransactions, range, "expense", "expenseCategory", expenseCategories);
   const incomeRows = summarizeTransactionsByCategory(budgetTransactions, range, "income", "incomeCategory", incomeCategories);
+  const compareTransactions = getBudgetTransactions(compareRange);
+  const compareExpenseRows = summarizeTransactionsByCategory(
+    compareTransactions,
+    compareRange,
+    "expense",
+    "expenseCategory",
+    expenseCategories
+  );
+  const compareIncomeRows = summarizeTransactionsByCategory(
+    compareTransactions,
+    compareRange,
+    "income",
+    "incomeCategory",
+    incomeCategories
+  );
 
   renderDashboardCategoryRows(
     elements.dashboardExpenseCategories,
     expenseRows,
     totals.expense,
-    "expense"
+    "expense",
+    compareExpenseRows
   );
   renderDashboardCategoryRows(
     elements.dashboardIncomeCategories,
     incomeRows,
     totals.income,
-    "income"
+    "income",
+    compareIncomeRows
   );
-  renderDashboardCashflowChart(currentMonthlySummaries());
+  renderDashboardCashflowChart(currentMonthlySummaries(`${dashboardState.month}-01`));
   renderDashboardExpenseDonut(expenseRows, totals.expense);
   renderDashboardInvestments(investmentRows);
   renderDashboardGoals();
   renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows);
-  renderDashboardAlerts();
+  renderDashboardAlerts(`${dashboardState.month}-01`);
 }
 
-function renderDashboardCategoryRows(container, rows, total, tone) {
+function renderDashboardCategoryRows(container, rows, total, tone, compareRows = []) {
   container.replaceChildren();
 
   if (rows.length === 0) {
@@ -605,14 +646,25 @@ function renderDashboardCategoryRows(container, rows, total, tone) {
     return;
   }
 
+  const previousByCategory = new Map(compareRows.map((row) => [row.value, row.amount]));
+
   for (const row of rows.slice(0, 6)) {
     const percent = total > 0 ? Math.min((row.amount / total) * 100, 100) : 0;
+    const previousAmount = previousByCategory.get(row.value) || 0;
+    const delta = row.amount - previousAmount;
+    const deltaClass = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+    const deltaText =
+      previousAmount > 0
+        ? `${delta > 0 ? "+" : ""}${(((row.amount - previousAmount) / previousAmount) * 100).toFixed(0)}%`
+        : row.amount > 0
+          ? "Nuevo"
+          : "0%";
     const item = document.createElement("div");
     item.className = `dashboard-category-row ${tone}`;
     item.innerHTML = `
       <div>
         <strong>${escapeHtml(row.label)}</strong>
-        <span>${currency(row.amount)}</span>
+        <span>${currency(row.amount)} <small class="category-delta ${deltaClass}">${deltaText}</small></span>
       </div>
       <div class="dashboard-bar"><span style="width: ${percent}%"></span></div>
     `;
@@ -765,8 +817,8 @@ function renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows) {
   }
 }
 
-function renderDashboardAlerts() {
-  const alerts = buildSmartAlerts();
+function renderDashboardAlerts(currentDate = todayIso()) {
+  const alerts = buildSmartAlerts(currentDate);
   elements.dashboardAlerts.replaceChildren();
 
   if (alerts.length === 0) {
@@ -1741,6 +1793,16 @@ function addDaysIso(date, days) {
   const value = new Date(`${date}T00:00:00`);
   value.setDate(value.getDate() + days);
   return toIsoDate(value);
+}
+
+function monthRangeFromKey(monthKey) {
+  return getPeriodRange(`${monthKey || todayIso().slice(0, 7)}-01`, "monthly");
+}
+
+function previousMonthKey(date) {
+  const value = new Date(`${date}T00:00:00`);
+  value.setMonth(value.getMonth() - 1);
+  return toIsoDate(value).slice(0, 7);
 }
 
 function previousMonthRange(date) {
