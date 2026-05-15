@@ -140,6 +140,19 @@ select {
   padding: 0.7rem 0.8rem;
 }
 
+.period-range-label {
+  display: block;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #8bb9a2;
+  border-radius: 7px;
+  background: var(--green-soft);
+  color: var(--green-strong);
+  font-size: 0.86rem;
+  line-height: 1.25;
+  text-align: center;
+  text-transform: capitalize;
+}
+
 .app-shell {
   width: min(1180px, calc(100% - 2rem));
   margin: 1.2rem auto 4rem;

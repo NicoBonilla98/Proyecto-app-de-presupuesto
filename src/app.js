@@ -48,6 +48,7 @@ const elements = {
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
   periodSelect: document.querySelector("#periodSelect"),
+  periodRangeLabel: document.querySelector("#periodRangeLabel"),
   dashboardMonth: document.querySelector("#dashboardMonth"),
   dashboardCompareMonth: document.querySelector("#dashboardCompareMonth"),
   dashboardSavingsAccounts: document.querySelector("#dashboardSavingsAccounts"),
@@ -405,6 +406,7 @@ function render() {
   elements.expenseTotal.textContent = currency(totals.expense);
   elements.balanceTotal.textContent = currency(totals.balance);
   elements.savingSuggestion.textContent = currency(savingPlan.amount);
+  elements.periodRangeLabel.textContent = formatPeriodRangeLabel(range, state.period);
   elements.incomePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
   elements.expensePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
 
@@ -1740,6 +1742,32 @@ function periodName(period) {
     biweekly: "Quincena",
     weekly: "Semana"
   }[period];
+}
+
+function formatPeriodRangeLabel(range, period) {
+  const start = new Date(`${range.start}T00:00:00`);
+  const end = new Date(`${range.end}T00:00:00`);
+  const month = start.toLocaleDateString("es-EC", { month: "long" });
+  const year = start.getFullYear();
+
+  if (period === "monthly") {
+    return `${month} ${year}`;
+  }
+
+  const label = period === "weekly" ? `S${weekOfMonth(start)}` : start.getDate() <= 15 ? "Q1" : "Q2";
+  const endMonth = end.toLocaleDateString("es-EC", { month: "short" }).replace(".", "");
+  const dateRange =
+    start.getMonth() === end.getMonth()
+      ? `del ${start.getDate()} al ${end.getDate()}`
+      : `del ${start.getDate()} ${month.slice(0, 3)} al ${end.getDate()} ${endMonth}`;
+
+  return `${month} ${label} (${dateRange}) ${year}`;
+}
+
+function weekOfMonth(date) {
+  const firstDayRange = getPeriodRange(toIsoDate(new Date(date.getFullYear(), date.getMonth(), 1)), "weekly");
+  const firstWeekStart = new Date(`${firstDayRange.start}T00:00:00`);
+  return Math.floor((date.getTime() - firstWeekStart.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1;
 }
 
 function frequencyLabel(frequency) {
