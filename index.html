@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260510-10" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260514-1" />
   </head>
   <body>
     <header class="app-header">
@@ -53,6 +53,50 @@
             <span>Ahorro sugerido</span>
             <strong id="savingSuggestion">$0.00</strong>
           </article>
+        </section>
+
+        <section class="budget-status-layout" aria-label="Estado del presupuesto">
+          <article id="budgetProgressCard" class="panel budget-progress-card">
+            <div class="budget-status-heading">
+              <div>
+                <p class="eyebrow">Resumen del periodo</p>
+                <h2>Estado de presupuesto</h2>
+              </div>
+              <div class="budget-status-amount">
+                <strong id="budgetSpentAmount">$0.00</strong>
+                <span id="budgetSpentCaption">gastados de $0.00</span>
+              </div>
+            </div>
+
+            <div class="budget-progress-track" aria-label="Porcentaje utilizado del presupuesto">
+              <span id="budgetUsageBar"></span>
+            </div>
+            <div class="budget-progress-labels">
+              <span>0%</span>
+              <span id="budgetUsagePercent">0% utilizado</span>
+              <span>100%</span>
+            </div>
+          </article>
+
+          <div class="budget-side-stack">
+            <article id="budgetRemainingCard" class="panel budget-side-card">
+              <span>Restante del periodo</span>
+              <strong id="budgetRemainingAmount">$0.00</strong>
+              <p id="budgetRemainingStatus">Sin datos</p>
+            </article>
+            <article class="panel budget-side-card">
+              <span>Dias restantes</span>
+              <strong><span id="budgetDaysRemaining">0</span> dias</strong>
+            </article>
+          </div>
+        </section>
+
+        <section id="dailyBudgetCard" class="daily-budget-card" aria-label="Presupuesto diario sugerido">
+          <div>
+            <p class="eyebrow">Presupuesto diario equitativo</p>
+            <p>Para mantener la estabilidad hasta fin de periodo, tu limite sugerido es:</p>
+          </div>
+          <strong><span id="dailyBudgetAmount">$0.00</span><small>por dia</small></strong>
         </section>
 
         <section class="workspace budget-entry-grid">

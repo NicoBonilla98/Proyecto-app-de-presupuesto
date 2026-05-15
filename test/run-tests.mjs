@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  calculateBudgetProgress,
   calculateInvestment,
   calculateSavingsPlan,
   calculateTotals,
@@ -34,6 +35,31 @@ const tests = [
       assert.equal(totals.income, 1000);
       assert.equal(totals.expense, 250);
       assert.equal(totals.balance, 750);
+    }
+  },
+  {
+    name: "calcula progreso de presupuesto del periodo",
+    run() {
+      const range = getPeriodRange("2026-05-14", "monthly");
+      const progress = calculateBudgetProgress({ income: 12450, expense: 8000 }, range, "2026-05-14");
+
+      assert.equal(progress.remaining, 4450);
+      assert.equal(Math.round(progress.usagePercent * 10) / 10, 64.3);
+      assert.equal(progress.daysRemaining, 18);
+      assert.equal(Math.round(progress.dailyAvailable * 100) / 100, 247.22);
+      assert.equal(progress.isOverBudget, false);
+    }
+  },
+  {
+    name: "marca presupuesto excedido cuando gastos superan ingresos",
+    run() {
+      const range = getPeriodRange("2026-05-14", "monthly");
+      const progress = calculateBudgetProgress({ income: 500, expense: 750 }, range, "2026-05-14");
+
+      assert.equal(progress.remaining, -250);
+      assert.equal(progress.cappedUsagePercent, 100);
+      assert.equal(progress.dailyAvailable, 0);
+      assert.equal(progress.isOverBudget, true);
     }
   },
   {

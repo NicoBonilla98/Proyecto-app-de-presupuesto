@@ -1,4 +1,5 @@
 import {
+  calculateBudgetProgress,
   calculateInvestment,
   calculateSavingsPlan,
   calculateTotals,
@@ -74,6 +75,17 @@ const elements = {
   budgetHealthBox: document.querySelector("#budgetHealthBox"),
   budgetHealthTitle: document.querySelector("#budgetHealthTitle"),
   budgetHealthAmount: document.querySelector("#budgetHealthAmount"),
+  budgetProgressCard: document.querySelector("#budgetProgressCard"),
+  budgetSpentAmount: document.querySelector("#budgetSpentAmount"),
+  budgetSpentCaption: document.querySelector("#budgetSpentCaption"),
+  budgetUsageBar: document.querySelector("#budgetUsageBar"),
+  budgetUsagePercent: document.querySelector("#budgetUsagePercent"),
+  budgetRemainingCard: document.querySelector("#budgetRemainingCard"),
+  budgetRemainingAmount: document.querySelector("#budgetRemainingAmount"),
+  budgetRemainingStatus: document.querySelector("#budgetRemainingStatus"),
+  budgetDaysRemaining: document.querySelector("#budgetDaysRemaining"),
+  dailyBudgetCard: document.querySelector("#dailyBudgetCard"),
+  dailyBudgetAmount: document.querySelector("#dailyBudgetAmount"),
   liquidityForm: document.querySelector("#liquidityForm"),
   availableCash: document.querySelector("#availableCash"),
   projectionMonths: document.querySelector("#projectionMonths"),
@@ -338,6 +350,7 @@ function render() {
   elements.expensePeriodLabel.textContent = `${periodName(state.period)} actual: ${formatDate(range.start)} - ${formatDate(range.end)}.`;
 
   renderBudgetPeriodLists(range, budgetTransactions);
+  renderBudgetProgress(totals, range);
   renderBudgetHealth(totals);
   renderGoals();
   renderInvestments();
@@ -490,6 +503,23 @@ function renderBudgetHealth(totals) {
     ? `Gastos superados para el ${period}.`
     : `Tus ahorros del ${period} son de:`;
   elements.budgetHealthAmount.textContent = currency(Math.abs(savings));
+}
+
+function renderBudgetProgress(totals, range) {
+  const progress = calculateBudgetProgress(totals, range, todayIso());
+
+  elements.budgetSpentAmount.textContent = currency(progress.expense);
+  elements.budgetSpentCaption.textContent = `gastados de ${currency(progress.income)}`;
+  elements.budgetUsageBar.style.width = `${progress.cappedUsagePercent}%`;
+  elements.budgetUsagePercent.textContent = `${progress.usagePercent.toFixed(1)}% utilizado`;
+  elements.budgetRemainingAmount.textContent = currency(progress.remaining);
+  elements.budgetRemainingStatus.textContent = progress.statusText;
+  elements.budgetDaysRemaining.textContent = progress.daysRemaining;
+  elements.dailyBudgetAmount.textContent = currency(progress.dailyAvailable);
+
+  elements.budgetProgressCard.classList.toggle("danger", progress.isOverBudget);
+  elements.budgetRemainingCard.classList.toggle("danger", progress.isOverBudget);
+  elements.dailyBudgetCard.classList.toggle("danger", progress.isOverBudget);
 }
 
 function updateLiquiditySettings() {

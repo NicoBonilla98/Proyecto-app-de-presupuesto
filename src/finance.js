@@ -74,6 +74,38 @@ export function calculateTotals(transactions, range) {
     );
 }
 
+export function calculateBudgetProgress(totals, range, currentDate = todayIso()) {
+  const income = Number(totals.income) || 0;
+  const expense = Number(totals.expense) || 0;
+  const remaining = income - expense;
+  const isOverBudget = remaining < 0;
+  const usagePercent = income > 0 ? (expense / income) * 100 : expense > 0 ? 100 : 0;
+  const cappedUsagePercent = Math.min(Math.max(usagePercent, 0), 100);
+  const today = new Date(`${currentDate}T00:00:00`);
+  const start = new Date(`${range.start}T00:00:00`);
+  const end = new Date(`${range.end}T00:00:00`);
+  const remainingBaseDate = today < start ? start : today;
+  const daysRemaining = today > end ? 0 : Math.max(daysBetween(remainingBaseDate, end) + 1, 0);
+  const dailyAvailable = daysRemaining > 0 ? Math.max(remaining, 0) / daysRemaining : Math.max(remaining, 0);
+
+  return {
+    income,
+    expense,
+    remaining,
+    usagePercent,
+    cappedUsagePercent,
+    daysRemaining,
+    dailyAvailable,
+    isOverBudget,
+    statusText:
+      isOverBudget
+        ? "Gastos superados para el periodo."
+        : income <= 0
+          ? "Registra ingresos para calcular tu presupuesto."
+          : "En buen camino."
+  };
+}
+
 export function generateFixedTransactions(fixedItems, range) {
   return fixedItems.flatMap((item) => {
     const start = item.startDate > range.start ? item.startDate : range.start;

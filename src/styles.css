@@ -298,6 +298,177 @@ select {
   font-size: 1.15rem;
 }
 
+.budget-status-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+.budget-progress-card {
+  display: grid;
+  align-content: center;
+  gap: 1.35rem;
+  min-height: 15rem;
+}
+
+.budget-status-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.budget-status-heading h2 {
+  margin-bottom: 0;
+  font-size: 1.55rem;
+}
+
+.budget-status-amount {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 12rem;
+  text-align: right;
+}
+
+.budget-status-amount strong {
+  color: var(--green-strong);
+  font-size: clamp(2.1rem, 5vw, 3rem);
+  line-height: 1;
+}
+
+.budget-status-amount span,
+.budget-progress-labels {
+  color: #5a6b66;
+}
+
+.budget-progress-track {
+  height: 1.15rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dde4e4;
+}
+
+.budget-progress-track span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: #18bd87;
+  transition: width 0.25s ease;
+}
+
+.budget-progress-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-weight: 700;
+}
+
+.budget-side-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.budget-side-card {
+  display: grid;
+  align-content: center;
+  gap: 0.45rem;
+  min-height: 7rem;
+}
+
+.budget-side-card > span {
+  color: var(--blue);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.budget-side-card strong {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1;
+}
+
+.budget-side-card strong span {
+  font-size: inherit;
+}
+
+.budget-side-card p {
+  margin-bottom: 0;
+  color: var(--green-strong);
+  font-weight: 700;
+}
+
+.budget-progress-card.danger .budget-status-amount strong,
+.budget-side-card.danger p {
+  color: var(--red);
+}
+
+.budget-progress-card.danger .budget-progress-track span {
+  background: var(--red);
+}
+
+.daily-budget-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1.55rem;
+  border-radius: 10px;
+  background: #00351f;
+  color: #b7f5d7;
+  box-shadow: var(--shadow);
+}
+
+.daily-budget-card .eyebrow {
+  color: #7bf0b7;
+}
+
+.daily-budget-card p:last-child {
+  max-width: 34rem;
+  margin-bottom: 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.daily-budget-card strong {
+  display: grid;
+  min-width: 13rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: #18bd87;
+  color: #00351f;
+  text-align: center;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1;
+}
+
+.daily-budget-card small {
+  margin-top: 0.45rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-budget-card.danger {
+  background: #4d0018;
+  color: #ffd6e2;
+}
+
+.daily-budget-card.danger .eyebrow {
+  color: #ffd6e2;
+}
+
+.daily-budget-card.danger strong {
+  background: #ffd6e2;
+  color: #4d0018;
+}
+
 .workspace {
   grid-template-columns: 1fr 1fr;
   margin-bottom: 1rem;
@@ -914,10 +1085,22 @@ button.danger {
   }
 
   .summary-grid,
+  .budget-status-layout,
   .workspace,
   .content-grid,
   .filter-grid {
     grid-template-columns: 1fr;
+  }
+
+  .daily-budget-card,
+  .budget-status-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .budget-status-amount {
+    min-width: 0;
+    text-align: left;
   }
 
   .investment-facts {
@@ -952,5 +1135,14 @@ button.danger {
 
   .metric strong {
     font-size: 1.45rem;
+  }
+
+  .budget-progress-labels {
+    font-size: 0.88rem;
+  }
+
+  .daily-budget-card strong {
+    min-width: 0;
+    width: 100%;
   }
 }
