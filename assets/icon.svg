@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Presupuesto Hogar">
+  <rect width="512" height="512" rx="96" fill="#007a4d"/>
+  <path fill="#e8f5ef" d="M112 178 256 82l144 96v222a30 30 0 0 1-30 30H142a30 30 0 0 1-30-30V178Z"/>
+  <path fill="#007a4d" d="M172 242h168v36H172v-36Zm0 70h168v36H172v-36Z"/>
+  <circle cx="256" cy="176" r="38" fill="#18bd87"/>
+  <path fill="#00351f" d="M248 151h18v17h22v18h-22v15h-18v-15h-22v-18h22v-17Z"/>
+</svg>

@@ -1,0 +1,26 @@
+{
+  "name": "Presupuesto Hogar",
+  "short_name": "Presupuesto",
+  "description": "Gestion familiar de ingresos, gastos, inversiones y compras futuras.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f7f8",
+  "theme_color": "#007a4d",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

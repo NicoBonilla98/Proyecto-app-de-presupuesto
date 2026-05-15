@@ -41,6 +41,8 @@ const dashboardState = {
   compareMonth: previousMonthKey(todayIso())
 };
 
+registerServiceWorker();
+
 const elements = {
   tabButtons: document.querySelectorAll("[data-tab-target]"),
   tabPanels: document.querySelectorAll(".tab-panel"),
@@ -375,6 +377,16 @@ function activateTab(tabId) {
   });
   elements.tabPanels.forEach((panel) => {
     panel.classList.toggle("active", panel.id === tabId);
+  });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {
+      // La app sigue funcionando aunque el navegador no permita registrar la PWA.
+    });
   });
 }
 
