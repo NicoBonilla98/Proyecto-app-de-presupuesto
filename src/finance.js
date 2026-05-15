@@ -6,10 +6,17 @@ export const incomeCategories = [
 ];
 
 export const expenseCategories = [
-  { value: "fixed", label: "Gasto fijo" },
-  { value: "variable", label: "Gasto variable" },
-  { value: "unique", label: "Gasto unico" },
-  { value: "emergency", label: "Gasto emergente" }
+  { value: "food", label: "Comida" },
+  { value: "housing", label: "Vivienda" },
+  { value: "transport", label: "Transporte" },
+  { value: "health", label: "Salud" },
+  { value: "leisure", label: "Ocio" },
+  { value: "education", label: "Educacion" },
+  { value: "services", label: "Servicios" },
+  { value: "debts", label: "Deudas" },
+  { value: "shopping", label: "Compras" },
+  { value: "emergency", label: "Emergencias" },
+  { value: "other", label: "Otros" }
 ];
 
 export const investmentProducts = [
@@ -121,6 +128,7 @@ export function generateFixedTransactions(fixedItems, range) {
       category: "fixed",
       description: item.description,
       amount: Number(item.amount) || 0,
+      expenseCategory: item.kind === "expense" ? item.expenseCategory || "other" : undefined,
       date
     }));
   });

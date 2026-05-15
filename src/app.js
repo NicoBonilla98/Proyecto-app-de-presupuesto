@@ -62,6 +62,7 @@ const elements = {
   expenseEditId: document.querySelector("#expenseEditId"),
   expenseEditMode: document.querySelector("#expenseEditMode"),
   expenseType: document.querySelector("#expenseType"),
+  expenseCategory: document.querySelector("#expenseCategory"),
   expenseDescription: document.querySelector("#expenseDescription"),
   expenseAmount: document.querySelector("#expenseAmount"),
   expenseDateField: document.querySelector("#expenseDateField"),
@@ -397,6 +398,7 @@ function handleBudgetSubmit(event, kind) {
       frequency: elements[`${kind}Frequency`].value,
       description,
       amount,
+      expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
       startDate: elements[`${kind}StartDate`].value
     };
 
@@ -417,6 +419,7 @@ function handleBudgetSubmit(event, kind) {
       id: editMode === "transaction" && editId ? editId : createId(),
       kind,
       category: type,
+      expenseCategory: kind === "expense" ? elements.expenseCategory.value : undefined,
       description,
       amount,
       date: elements[`${kind}Date`].value
@@ -899,6 +902,9 @@ function editTransaction(id) {
   elements[`${kind}EditId`].value = transaction.id;
   elements[`${kind}EditMode`].value = "transaction";
   elements[`${kind}Type`].value = transaction.category === "variable" ? "variable" : "unique";
+  if (kind === "expense") {
+    elements.expenseCategory.value = transaction.expenseCategory || "other";
+  }
   elements[`${kind}Description`].value = transaction.description;
   elements[`${kind}Amount`].value = transaction.amount;
   elements[`${kind}Date`].value = transaction.date;
@@ -931,6 +937,9 @@ function editFixedItem(id) {
   elements[`${kind}EditMode`].value = "fixed";
   elements[`${kind}Type`].value = "fixed";
   elements[`${kind}Frequency`].value = fixedItem.frequency;
+  if (kind === "expense") {
+    elements.expenseCategory.value = fixedItem.expenseCategory || "other";
+  }
   elements[`${kind}Description`].value = fixedItem.description;
   elements[`${kind}Amount`].value = fixedItem.amount;
   elements[`${kind}StartDate`].value = todayIso();
@@ -986,6 +995,9 @@ function resetBudgetForm(kind) {
   elements[`${kind}EditId`].value = "";
   elements[`${kind}EditMode`].value = "";
   elements[`${kind}Type`].value = "fixed";
+  if (kind === "expense") {
+    elements.expenseCategory.value = "food";
+  }
   elements[`${kind}Date`].value = todayIso();
   elements[`${kind}StartDate`].value = todayIso();
   elements[`${kind}StartDate`].setCustomValidity("");
@@ -1273,8 +1285,20 @@ function emptyState(message = "") {
 }
 
 function categoryLabel(transaction) {
-  const list = transaction.kind === "income" ? incomeCategories : expenseCategories;
-  return list.find((category) => category.value === transaction.category)?.label || "Sin categoria";
+  if (transaction.kind === "income") {
+    return incomeCategories.find((category) => category.value === transaction.category)?.label || "Sin categoria";
+  }
+
+  const expenseType = {
+    fixed: "Gasto fijo",
+    variable: "Gasto variable",
+    unique: "Gasto unico",
+    emergency: "Gasto emergente"
+  }[transaction.category] || "Gasto";
+  const expenseCategory =
+    expenseCategories.find((category) => category.value === transaction.expenseCategory)?.label || "Sin categoria";
+
+  return `${expenseType} · ${expenseCategory}`;
 }
 
 function periodName(period) {

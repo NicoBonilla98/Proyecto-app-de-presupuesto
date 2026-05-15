@@ -102,6 +102,30 @@ const tests = [
     }
   },
   {
+    name: "conserva categoria de gasto en gastos fijos generados",
+    run() {
+      const range = getPeriodRange("2026-05-09", "monthly");
+      const transactions = generateFixedTransactions(
+        [
+          {
+            id: "rent",
+            kind: "expense",
+            frequency: "monthly",
+            description: "Arriendo",
+            amount: 500,
+            expenseCategory: "housing",
+            startDate: "2026-05-01"
+          }
+        ],
+        range
+      );
+
+      assert.equal(transactions.length, 1);
+      assert.equal(transactions[0].category, "fixed");
+      assert.equal(transactions[0].expenseCategory, "housing");
+    }
+  },
+  {
     name: "mantiene versiones pasadas de un fijo sin afectar el futuro",
     run() {
       const range = getPeriodRange("2026-05-09", "monthly");
