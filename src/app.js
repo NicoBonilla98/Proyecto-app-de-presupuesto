@@ -1190,10 +1190,14 @@ function handleAutoGoalContribution(goalId) {
     return;
   }
 
-  const monthlyRange = getPeriodRange(todayIso(), "monthly");
-  const monthlyTotals = calculateTotals(getBudgetTransactions(monthlyRange), monthlyRange);
-  if (monthlyTotals.balance < recommendedAmount) {
-    showGoalToast(`No se puede hacer un abono: faltan ${currency(recommendedAmount - monthlyTotals.balance)} de fondos disponibles.`);
+  const activeRange = getPeriodRange(todayIso(), state.period);
+  const activeTotals = calculateTotals(getBudgetTransactions(activeRange), activeRange);
+  if (activeTotals.income <= 0) {
+    showGoalToast(`No se puede hacer un abono: no hay ingresos en este ${periodName(state.period).toLowerCase()}.`);
+    return;
+  }
+  if (activeTotals.balance < recommendedAmount) {
+    showGoalToast(`No se puede hacer un abono: faltan ${currency(recommendedAmount - activeTotals.balance)} de fondos disponibles.`);
     return;
   }
 
