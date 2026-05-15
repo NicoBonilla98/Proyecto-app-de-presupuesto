@@ -31,6 +31,7 @@ let syncRetryTimer = null;
 let lastSyncedFingerprint = "";
 let investmentInterestEdited = false;
 let currentExtraContributions = [];
+let goalToastQueue = Promise.resolve();
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -1183,11 +1184,20 @@ function launchGoalConfetti() {
 }
 
 function showGoalToast(text) {
-  const message = document.createElement("div");
-  message.className = "goal-complete-toast";
-  message.textContent = text;
-  document.body.append(message);
-  window.setTimeout(() => message.remove(), 3200);
+  goalToastQueue = goalToastQueue.then(() => showGoalToastNow(text));
+}
+
+function showGoalToastNow(text) {
+  return new Promise((resolve) => {
+    const message = document.createElement("div");
+    message.className = "goal-complete-toast";
+    message.textContent = text;
+    document.body.append(message);
+    window.setTimeout(() => {
+      message.remove();
+      window.setTimeout(resolve, 250);
+    }, 3200);
+  });
 }
 
 function renderFixedItems() {
