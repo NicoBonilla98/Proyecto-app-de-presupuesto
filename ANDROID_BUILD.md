@@ -34,6 +34,45 @@ Desde Android Studio se puede ejecutar en un telefono conectado o generar el APK
 Build > Build Bundle(s) / APK(s) > Build APK(s)
 ```
 
+## Generar APK firmado
+
+El APK firmado necesita una llave privada local. No subas esta llave a Git y no la pierdas: si luego quieres actualizar la misma app instalada, Android exige firmar las nuevas versiones con la misma llave.
+
+Crear una carpeta local para llaves:
+
+```bash
+mkdir android\keystores
+```
+
+Crear la llave:
+
+```bash
+"C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkeypair -v -keystore android\keystores\presupuesto-hogar-release.jks -alias presupuesto-hogar -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Crear el archivo local `android/keystore.properties`:
+
+```properties
+storeFile=keystores/presupuesto-hogar-release.jks
+storePassword=TU_PASSWORD
+keyAlias=presupuesto-hogar
+keyPassword=TU_PASSWORD
+```
+
+Ese archivo esta ignorado por Git.
+
+Generar el APK firmado:
+
+```bash
+npm run mobile:release:apk
+```
+
+El archivo queda en:
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
 ## Servidor de sincronizacion
 
 Dentro del APK, la app apunta por defecto a:

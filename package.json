@@ -10,6 +10,7 @@
     "mobile:add:android": "npm run mobile:build && npx cap add android",
     "mobile:sync": "npm run mobile:build && npx cap sync android",
     "mobile:open": "npx cap open android",
+    "mobile:release:apk": "npm run mobile:sync && cd android && gradlew.bat assembleRelease",
     "test": "node test/run-tests.mjs"
   },
   "dependencies": {
