@@ -21,6 +21,7 @@ export const expenseCategories = [
   { value: "services", label: "Servicios" },
   { value: "debts", label: "Deudas" },
   { value: "shopping", label: "Compras" },
+  { value: "savings", label: "Ahorro" },
   { value: "emergency", label: "Emergencias" },
   { value: "other", label: "Otros" }
 ];
@@ -196,6 +197,7 @@ export function createSavingCalendar(goal) {
     const date = new Date(start);
     date.setMonth(start.getMonth() + index);
     rows.push({
+      monthKey: toIso(date).slice(0, 7),
       label: date.toLocaleDateString("es-EC", { month: "long", year: "numeric" }),
       amount: plan.amount
     });

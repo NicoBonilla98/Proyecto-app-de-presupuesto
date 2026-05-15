@@ -1349,6 +1349,29 @@ button.danger {
   background: #f4f7f8;
 }
 
+.calendar-grid span.paid {
+  border: 1px solid #8bb9a2;
+  background: var(--green-soft);
+}
+
+.calendar-grid span.paid b,
+.calendar-grid span.paid em {
+  text-decoration: line-through;
+}
+
+.calendar-grid em {
+  display: block;
+  font-style: normal;
+}
+
+.calendar-grid small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--green-strong);
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .calendar-grid b {
   display: block;
   color: var(--ink);

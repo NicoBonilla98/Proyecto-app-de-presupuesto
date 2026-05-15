@@ -1062,6 +1062,7 @@ function renderGoals() {
           <span>Meta: ${currency(goal.target)} · Fecha: ${formatDate(goal.targetDate)}</span>
         </div>
         <div class="item-actions">
+          <button type="button" data-auto-contribute-goal="${goal.id}">Auto abono</button>
           <button type="button" data-contribute-goal="${goal.id}">Abonar</button>
           <button type="button" data-edit-goal="${goal.id}">Editar</button>
           <button type="button" data-delete-goal="${goal.id}">Eliminar</button>
@@ -1085,7 +1086,10 @@ function renderGoals() {
       <div class="calendar-grid">
         ${calendar
           .slice(0, 6)
-          .map((row) => `<span><b>${row.label}</b>${currency(row.amount)}</span>`)
+          .map((row) => {
+            const paid = isGoalMonthPaid(goal, row.monthKey);
+            return `<span class="${paid ? "paid" : ""}"><b>${row.label}</b><em>${currency(row.amount)}</em>${paid ? "<small>Abonado</small>" : ""}</span>`;
+          })
           .join("")}
       </div>
     `;
@@ -1094,6 +1098,10 @@ function renderGoals() {
 
   elements.goalList.querySelectorAll("[data-contribute-goal]").forEach((button) => {
     button.addEventListener("click", () => toggleGoalContributionForm(button.dataset.contributeGoal, true));
+  });
+
+  elements.goalList.querySelectorAll("[data-auto-contribute-goal]").forEach((button) => {
+    button.addEventListener("click", () => handleAutoGoalContribution(button.dataset.autoContributeGoal));
   });
 
   elements.goalList.querySelectorAll("[data-cancel-contribution]").forEach((button) => {
@@ -1160,6 +1168,74 @@ function handleGoalContribution(event) {
     launchGoalConfetti();
     showGoalToast(`Meta cumplida: ${goal.name}`);
   }
+}
+
+function handleAutoGoalContribution(goalId) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal) return;
+
+  const currentMonth = todayIso().slice(0, 7);
+  if (isGoalMonthPaid(goal, currentMonth)) {
+    showGoalToast("Este mes ya fue abonado para esta meta.");
+    return;
+  }
+
+  const currentSaved = Number(goal.saved) || 0;
+  const target = Number(goal.target) || 0;
+  const remaining = Math.max(target - currentSaved, 0);
+  const recommendedAmount = Math.min(calculateSavingsPlan(goal, "monthly").amount, remaining);
+
+  if (recommendedAmount <= 0) {
+    showGoalToast("Esta meta ya esta cubierta.");
+    return;
+  }
+
+  const monthlyRange = getPeriodRange(todayIso(), "monthly");
+  const monthlyTotals = calculateTotals(getBudgetTransactions(monthlyRange), monthlyRange);
+  if (monthlyTotals.balance < recommendedAmount) {
+    showGoalToast(`No se puede hacer un abono: faltan ${currency(recommendedAmount - monthlyTotals.balance)} de fondos disponibles.`);
+    return;
+  }
+
+  goal.saved = Math.min(currentSaved + recommendedAmount, target);
+  goal.contributions = [
+    ...(Array.isArray(goal.contributions) ? goal.contributions : []),
+    {
+      id: createId(),
+      amount: recommendedAmount,
+      date: todayIso(),
+      monthKey: currentMonth,
+      type: "auto"
+    }
+  ];
+  goal.updatedAt = new Date().toISOString();
+  state.transactions.unshift(
+    stampRecord({
+      id: createId(),
+      kind: "expense",
+      category: "unique",
+      expenseCategory: "savings",
+      householdMember: "home",
+      description: `Ahorro para ${goal.name}`,
+      amount: recommendedAmount,
+      date: todayIso()
+    })
+  );
+
+  const isCompleted = target > 0 && goal.saved >= target && currentSaved < target;
+  persist();
+  render();
+  showGoalToast(`Auto abono registrado por ${currency(recommendedAmount)}.`);
+  if (isCompleted) {
+    launchGoalConfetti();
+    showGoalToast(`Meta cumplida: ${goal.name}`);
+  }
+}
+
+function isGoalMonthPaid(goal, monthKey) {
+  return (Array.isArray(goal.contributions) ? goal.contributions : []).some((contribution) => {
+    return contribution.type === "auto" && contribution.monthKey === monthKey;
+  });
 }
 
 function launchGoalConfetti() {
