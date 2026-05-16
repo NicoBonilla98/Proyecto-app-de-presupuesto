@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Presupuesto Hogar" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260515-10" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260516-1" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./assets/icon.svg" />
@@ -779,6 +779,49 @@
           </article>
         </section>
 
+        <section class="panel purchase-checker">
+          <div class="panel-heading">
+            <h2>Puedo permitirme una compra?</h2>
+            <p>Evalua una compra inmediata considerando ingresos, gastos futuros, compras planeadas y safety net.</p>
+          </div>
+
+          <form id="purchaseCheckForm" class="purchase-check-form">
+            <label>
+              Nombre de la compra
+              <input id="purchaseName" type="text" placeholder="Ej. celular, mueble, arreglo del auto" />
+            </label>
+            <label>
+              Monto de la compra
+              <input id="purchaseAmount" type="number" min="0" step="0.01" placeholder="0.00" />
+            </label>
+            <button type="submit" class="primary">Evaluar compra</button>
+          </form>
+
+          <article id="purchaseAffordabilityResult" class="purchase-affordability neutral" aria-live="polite">
+            <div>
+              <span id="purchaseAffordabilityKicker">Compra por evaluar</span>
+              <strong id="purchaseAffordabilityTitle">Ingresa el monto de la compra.</strong>
+              <p id="purchaseAffordabilityMessage">
+                La app revisara tus ingresos, gastos futuros y ahorros planeados.
+              </p>
+            </div>
+            <dl class="purchase-affordability-facts">
+              <div>
+                <dt>Saldo despues de comprar</dt>
+                <dd id="purchaseRemainingToday">$0.00</dd>
+              </div>
+              <div>
+                <dt>Mes mas ajustado</dt>
+                <dd id="purchaseTightestMonth">Sin datos</dd>
+              </div>
+              <div>
+                <dt>Safety net requerida</dt>
+                <dd id="purchaseSafetyNet">$0.00</dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
         <section class="panel list-panel">
           <div class="panel-heading">
             <h2>Proyeccion mensual</h2>
@@ -796,6 +839,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260515-13"></script>
+    <script type="module" src="./src/app.js?v=20260516-1"></script>
   </body>
 </html>

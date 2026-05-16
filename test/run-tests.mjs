@@ -14,6 +14,7 @@ import {
 import {
   calculateInvestmentCapacity,
   calculateSafetyNet,
+  evaluatePurchaseAffordability,
   estimateMonthlyVariableCashflow
 } from "../src/liquidity.js";
 import { createId } from "../src/ids.js";
@@ -678,6 +679,46 @@ const tests = [
       assert.equal(result.safetyNet, 500);
       assert.equal(result.capacity, 1200);
       assert.equal(result.projections.length, 2);
+    }
+  },
+  {
+    name: "evalua si una compra respeta liquidez futura",
+    run() {
+      const data = {
+        transactions: [],
+        fixedItems: [
+          {
+            id: "salary",
+            kind: "income",
+            frequency: "monthly",
+            description: "Sueldo",
+            amount: 1000,
+            startDate: "2026-05-01"
+          },
+          {
+            id: "rent",
+            kind: "expense",
+            frequency: "monthly",
+            description: "Arriendo",
+            amount: 400,
+            startDate: "2026-05-01"
+          }
+        ],
+        goals: [],
+        investments: []
+      };
+      const options = {
+        availableCash: 900,
+        projectionMonths: 2,
+        safetyMonths: 2,
+        variableExpenseBuffer: 0,
+        includeVariableIncome: false,
+        startDate: "2026-05-09"
+      };
+
+      assert.equal(evaluatePurchaseAffordability(data, options, 100).status, "success");
+      assert.equal(evaluatePurchaseAffordability(data, options, 800).status, "warning");
+      assert.equal(evaluatePurchaseAffordability(data, options, 950).status, "danger");
     }
   }
 ];

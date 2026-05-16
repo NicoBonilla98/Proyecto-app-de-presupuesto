@@ -81,6 +81,63 @@ export function calculateInvestmentCapacity(data, options) {
   };
 }
 
+export function evaluatePurchaseAffordability(data, options, purchaseAmount) {
+  const amount = Math.max(Number(purchaseAmount) || 0, 0);
+  const availableCash = Math.max(Number(options.availableCash) || 0, 0);
+  const remainingToday = availableCash - amount;
+  const result = calculateInvestmentCapacity(data, {
+    ...options,
+    availableCash: remainingToday
+  });
+  const tightestProjectedCash = result.tightestMonth?.projectedCash ?? remainingToday;
+
+  if (amount <= 0) {
+    return {
+      status: "neutral",
+      title: "Ingresa el monto de la compra.",
+      message: "La app revisara tus ingresos, gastos futuros y ahorros planeados.",
+      purchaseAmount: amount,
+      remainingToday,
+      projectedMinimumCash: tightestProjectedCash,
+      ...result
+    };
+  }
+
+  if (remainingToday < 0 || tightestProjectedCash < 0) {
+    return {
+      status: "danger",
+      title: "No recomendamos hacer esta compra.",
+      message: "La compra supera tu dinero disponible o deja algun mes futuro en negativo.",
+      purchaseAmount: amount,
+      remainingToday,
+      projectedMinimumCash: tightestProjectedCash,
+      ...result
+    };
+  }
+
+  if (tightestProjectedCash < result.safetyNet) {
+    return {
+      status: "warning",
+      title: "Puedes hacerla, pero quedarias justo.",
+      message: "Despues de la compra quedarias por debajo de tu safety net para emergencias.",
+      purchaseAmount: amount,
+      remainingToday,
+      projectedMinimumCash: tightestProjectedCash,
+      ...result
+    };
+  }
+
+  return {
+    status: "success",
+    title: "Si puedes hacer esta compra.",
+    message: "La compra mantiene tus gastos futuros, ahorros planeados y safety net cubiertos.",
+    purchaseAmount: amount,
+    remainingToday,
+    projectedMinimumCash: tightestProjectedCash,
+    ...result
+  };
+}
+
 function estimateRequiredMonthlyExpenses(data, options) {
   const start = new Date(`${options.startDate}T00:00:00`);
   const range = {

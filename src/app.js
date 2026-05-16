@@ -18,7 +18,7 @@ import {
   validateDateWindow
 } from "./finance.js";
 import { createId } from "./ids.js";
-import { calculateInvestmentCapacity } from "./liquidity.js";
+import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js";
 import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js";
 
 const storageKey = "presupuesto-hogar:v1";
@@ -139,6 +139,16 @@ const elements = {
   tightestMonthLabel: document.querySelector("#tightestMonthLabel"),
   requiredExpenseAmount: document.querySelector("#requiredExpenseAmount"),
   liquidityProjectionList: document.querySelector("#liquidityProjectionList"),
+  purchaseCheckForm: document.querySelector("#purchaseCheckForm"),
+  purchaseName: document.querySelector("#purchaseName"),
+  purchaseAmount: document.querySelector("#purchaseAmount"),
+  purchaseAffordabilityResult: document.querySelector("#purchaseAffordabilityResult"),
+  purchaseAffordabilityKicker: document.querySelector("#purchaseAffordabilityKicker"),
+  purchaseAffordabilityTitle: document.querySelector("#purchaseAffordabilityTitle"),
+  purchaseAffordabilityMessage: document.querySelector("#purchaseAffordabilityMessage"),
+  purchaseRemainingToday: document.querySelector("#purchaseRemainingToday"),
+  purchaseTightestMonth: document.querySelector("#purchaseTightestMonth"),
+  purchaseSafetyNet: document.querySelector("#purchaseSafetyNet"),
   goalForm: document.querySelector("#goalForm"),
   goalId: document.querySelector("#goalId"),
   goalName: document.querySelector("#goalName"),
@@ -256,6 +266,12 @@ elements.liquidityForm.addEventListener("submit", (event) => {
   persist();
   renderLiquidityCapacity();
 });
+elements.purchaseCheckForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  renderPurchaseAffordability();
+});
+elements.purchaseAmount.addEventListener("input", () => renderPurchaseAffordability());
+elements.purchaseName.addEventListener("input", () => renderPurchaseAffordability());
 
 elements.goalForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -980,6 +996,39 @@ function renderLiquidityCapacity() {
   elements.tightestMonthLabel.textContent = result.tightestMonth?.label || "Sin datos";
   elements.requiredExpenseAmount.textContent = currency(result.requiredExpenses);
   renderLiquidityProjection(result.projections);
+  renderPurchaseAffordability();
+}
+
+function renderPurchaseAffordability() {
+  const purchaseAmount = Number(elements.purchaseAmount.value || 0);
+  const purchaseName = elements.purchaseName.value.trim();
+  const result = evaluatePurchaseAffordability(
+    {
+      transactions: state.transactions,
+      fixedItems: state.fixedItems,
+      goals: state.goals,
+      investments: state.investments
+    },
+    {
+      ...state.liquiditySettings,
+      startDate: todayIso()
+    },
+    purchaseAmount
+  );
+  const statusClasses = ["neutral", "success", "warning", "danger"];
+
+  elements.purchaseAffordabilityResult.classList.remove(...statusClasses);
+  elements.purchaseAffordabilityResult.classList.add(result.status);
+  elements.purchaseAffordabilityKicker.textContent = purchaseName
+    ? `Evaluando: ${purchaseName}`
+    : "Compra por evaluar";
+  elements.purchaseAffordabilityTitle.textContent = result.title;
+  elements.purchaseAffordabilityMessage.textContent = result.message;
+  elements.purchaseRemainingToday.textContent = currency(result.remainingToday);
+  elements.purchaseTightestMonth.textContent = result.tightestMonth
+    ? `${result.tightestMonth.label} · ${currency(result.projectedMinimumCash)}`
+    : "Sin datos";
+  elements.purchaseSafetyNet.textContent = currency(result.safetyNet);
 }
 
 function renderLiquidityProjection(projections) {

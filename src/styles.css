@@ -1124,6 +1124,84 @@ button.danger {
   color: var(--red);
 }
 
+.purchase-checker {
+  display: grid;
+  gap: 1rem;
+}
+
+.purchase-check-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(10rem, 0.7fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.purchase-affordability {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.9fr);
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #eef4f7;
+}
+
+.purchase-affordability.success {
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.purchase-affordability.warning {
+  background: #fff8e9;
+  color: #7a4a00;
+}
+
+.purchase-affordability.danger {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.purchase-affordability span {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.purchase-affordability strong {
+  display: block;
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+}
+
+.purchase-affordability p {
+  margin: 0.4rem 0 0;
+  color: inherit;
+}
+
+.purchase-affordability-facts {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.purchase-affordability-facts div {
+  padding: 0.7rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.purchase-affordability-facts dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.purchase-affordability-facts dd {
+  margin: 0.2rem 0 0;
+  color: var(--ink);
+  font-weight: 900;
+}
+
 .liquidity-facts {
   display: grid;
   gap: 0.65rem;
@@ -1593,6 +1671,8 @@ button.danger {
   .dashboard-layout,
   .workspace,
   .content-grid,
+  .purchase-affordability,
+  .purchase-check-form,
   .filter-grid {
     grid-template-columns: 1fr;
   }
@@ -1632,6 +1712,8 @@ button.danger {
   .dashboard-cashflow-chart,
   .dashboard-donut-legend,
   .dashboard-goals-grid,
+  .purchase-affordability,
+  .purchase-check-form,
   .investment-facts {
     grid-template-columns: 1fr;
   }
