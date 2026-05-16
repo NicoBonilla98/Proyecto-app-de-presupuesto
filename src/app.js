@@ -25,11 +25,15 @@ const storageKey = "presupuesto-hogar:v1";
 const syncServerUrlKey = "presupuesto-hogar:sync-server-url";
 const defaultMobileSyncServerUrl = "http://192.168.100.54";
 let hasSavedLocalState = Boolean(localStorage.getItem(storageKey));
-const syncRetryDelay = 5000;
-const syncRefreshDelay = 15000;
+const syncRetryDelay = 15000;
+const maxSyncRetryDelay = 5 * 60 * 1000;
+const syncRefreshDelay = 60000;
+const syncRequestTimeout = 8000;
 let isSavingServerState = false;
 let pendingServerSave = false;
 let syncRetryTimer = null;
+let syncIntervalTimer = null;
+let currentSyncRetryDelay = syncRetryDelay;
 let lastSyncedFingerprint = "";
 let lastSyncError = "";
 let investmentInterestEdited = false;
@@ -207,11 +211,13 @@ updateInvestmentProductFields();
 updateInvestmentExpectedInterest({ force: true });
 render();
 hydrateServerState();
-setInterval(syncFromServer, syncRefreshDelay);
-window.addEventListener("focus", syncFromServer);
+syncIntervalTimer = setInterval(syncFromServer, syncRefreshDelay);
+window.addEventListener("focus", () => syncFromServer({ userInitiated: true }));
+window.addEventListener("online", () => syncFromServer({ userInitiated: true }));
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) syncFromServer();
+  if (!document.hidden) syncFromServer({ userInitiated: true });
 });
+getNetworkConnection()?.addEventListener?.("change", () => syncFromServer({ userInitiated: true }));
 
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
@@ -2055,6 +2061,8 @@ function previousMonthRange(date) {
 }
 
 async function hydrateServerState() {
+  if (!canAttemptServerSync({ userInitiated: true })) return;
+
   updateSyncStatus("syncing");
   try {
     const serverState = await readServerState();
@@ -2076,7 +2084,8 @@ async function hydrateServerState() {
   }
 }
 
-async function syncFromServer() {
+async function syncFromServer(options = {}) {
+  if (!canAttemptServerSync(options)) return;
   if (isSavingServerState) return;
   if (pendingServerSave) {
     flushServerSave();
@@ -2094,6 +2103,7 @@ async function syncFromServer() {
     if (!hasAllSharedRecords(state, serverState)) {
       queueServerSave();
     } else {
+      resetSyncBackoff();
       updateSyncStatus("synced");
     }
   } catch (error) {
@@ -2139,6 +2149,7 @@ async function saveServerState() {
   Object.assign(state, mergeStateCopies(savedState, state));
   persistLocalState();
   lastSyncedFingerprint = stateFingerprint(state);
+  resetSyncBackoff();
   updateSyncStatus("synced");
 }
 
@@ -2150,6 +2161,7 @@ async function requestJson(path, options = {}) {
 
   const response = await fetch(url, {
     cache: "no-store",
+    signal: createTimeoutSignal(),
     ...options
   });
   if (!response.ok) {
@@ -2172,8 +2184,8 @@ async function requestJsonWithNativeHttp(url, options = {}) {
     headers: options.headers || {},
     data: options.body,
     responseType: "json",
-    connectTimeout: 10000,
-    readTimeout: 10000
+    connectTimeout: syncRequestTimeout,
+    readTimeout: syncRequestTimeout
   });
 
   if (response.status < 200 || response.status >= 300) {
@@ -2229,6 +2241,7 @@ function queueServerSave() {
 
 async function flushServerSave() {
   if (!pendingServerSave) return;
+  if (!canAttemptServerSync()) return;
 
   pendingServerSave = false;
   isSavingServerState = true;
@@ -2255,18 +2268,66 @@ function reportSyncError(context, error) {
   });
 }
 
+function canAttemptServerSync(options = {}) {
+  if (!navigator.onLine) {
+    lastSyncError = "El dispositivo no tiene conexion de red.";
+    updateSyncStatus("offline");
+    scheduleServerRetry();
+    return false;
+  }
+
+  if (isCellularConnection()) {
+    lastSyncError = "La sincronizacion se pauso para no usar datos celulares.";
+    updateSyncStatus("paused");
+    scheduleServerRetry();
+    return false;
+  }
+
+  if (document.hidden && !options.userInitiated) {
+    scheduleServerRetry();
+    return false;
+  }
+
+  return true;
+}
+
 function scheduleServerRetry() {
   if (syncRetryTimer) return;
 
   syncRetryTimer = setTimeout(() => {
     syncRetryTimer = null;
+    if (!canAttemptServerSync()) return;
+
     if (pendingServerSave || stateFingerprint(state) !== lastSyncedFingerprint) {
       pendingServerSave = true;
       flushServerSave();
     } else {
       syncFromServer();
     }
-  }, syncRetryDelay);
+  }, currentSyncRetryDelay);
+  currentSyncRetryDelay = Math.min(currentSyncRetryDelay * 2, maxSyncRetryDelay);
+}
+
+function resetSyncBackoff() {
+  currentSyncRetryDelay = syncRetryDelay;
+  if (syncRetryTimer) {
+    clearTimeout(syncRetryTimer);
+    syncRetryTimer = null;
+  }
+}
+
+function createTimeoutSignal() {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), syncRequestTimeout);
+  return controller.signal;
+}
+
+function isCellularConnection() {
+  return isMobileAppShell() && getNetworkConnection()?.type === "cellular";
+}
+
+function getNetworkConnection() {
+  return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
 }
 
 function updateSyncStatus(status) {
@@ -2279,13 +2340,14 @@ function updateSyncStatus(status) {
     syncing: "Sincronizando",
     synced: "Sincronizado",
     local: "Guardado local",
-    offline: "Pendiente de sincronizar"
+    offline: "Pendiente de sincronizar",
+    paused: "Guardado local"
   };
 
   elements.syncStatus.textContent = labels[status] || labels.local;
   elements.syncStatus.className = `sync-status ${status}`;
   elements.syncStatus.title =
-    status === "offline" && lastSyncError
+    (status === "offline" || status === "paused") && lastSyncError
       ? `No se pudo sincronizar con ${apiUrl("/api/state")}. ${lastSyncError}`
       : `Servidor de sincronizacion: ${apiUrl("/api/state") || "/api/state"}`;
 }
