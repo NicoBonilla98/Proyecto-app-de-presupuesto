@@ -2231,7 +2231,7 @@ async function requestJsonWithNativeHttp(url, options = {}) {
     url,
     method,
     headers: options.headers || {},
-    data: options.body,
+    data: parseNativeRequestBody(options.body),
     responseType: "json",
     connectTimeout: syncRequestTimeout,
     readTimeout: syncRequestTimeout
@@ -2248,6 +2248,17 @@ function parseJsonData(data) {
   if (data == null || data === "") return {};
   if (typeof data === "string") return JSON.parse(data);
   return data;
+}
+
+function parseNativeRequestBody(body) {
+  if (body == null || body === "") return undefined;
+  if (typeof body !== "string") return body;
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    return body;
+  }
 }
 
 function shouldUseNativeHttp() {
@@ -2325,13 +2336,6 @@ function canAttemptServerSync(options = {}) {
     return false;
   }
 
-  if (isCellularConnection()) {
-    lastSyncError = "La sincronizacion se pauso para no usar datos celulares.";
-    updateSyncStatus("paused");
-    scheduleServerRetry();
-    return false;
-  }
-
   if (document.hidden && !options.userInitiated) {
     scheduleServerRetry();
     return false;
@@ -2369,10 +2373,6 @@ function createTimeoutSignal() {
   const controller = new AbortController();
   setTimeout(() => controller.abort(), syncRequestTimeout);
   return controller.signal;
-}
-
-function isCellularConnection() {
-  return isMobileAppShell() && getNetworkConnection()?.type === "cellular";
 }
 
 function getNetworkConnection() {
