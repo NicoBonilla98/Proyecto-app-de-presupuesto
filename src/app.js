@@ -39,6 +39,8 @@ let lastSyncError = "";
 let investmentInterestEdited = false;
 let currentExtraContributions = [];
 let goalToastQueue = Promise.resolve();
+let receivableNotificationTimer = null;
+let receivableNotificationPermissionRequested = false;
 const state = loadState();
 const calendarState = {
   year: new Date().getFullYear(),
@@ -494,6 +496,7 @@ function render() {
   renderInvestments();
   renderCalendar();
   renderLiquidityCapacity();
+  scheduleReceivableNotifications();
 }
 
 function changeCalendarMonth(direction) {
@@ -1541,9 +1544,125 @@ function collectReceivable(id) {
   receivable.incomeTransactionId = transaction.id;
   receivable.updatedAt = new Date().toISOString();
   state.transactions.unshift(transaction);
+  cancelReceivableNotification(id);
   persist();
   render();
   showGoalToast(`Cobro registrado como ingreso: ${currency(transaction.amount)}.`);
+}
+
+function scheduleReceivableNotifications() {
+  if (!isMobileAppShell() || !getLocalNotificationsPlugin()) return;
+
+  window.clearTimeout(receivableNotificationTimer);
+  receivableNotificationTimer = window.setTimeout(() => {
+    syncReceivableNotifications().catch((error) => {
+      console.warn("No se pudieron programar las notificaciones de deudas por cobrar", error);
+    });
+  }, 500);
+}
+
+async function syncReceivableNotifications() {
+  const localNotifications = getLocalNotificationsPlugin();
+  if (!localNotifications) return;
+
+  const permission = await ensureReceivableNotificationPermission(localNotifications);
+  if (!permission) return;
+
+  const notifications = state.receivables
+    .filter((receivable) => receivable.status !== "collected" && receivable.dueDate)
+    .map(createReceivableNotification)
+    .filter(Boolean);
+  const cancelIds = [
+    ...state.receivables.map((receivable) => notificationIdForReceivable(receivable.id)),
+    ...state.deletedItemIds.map((id) => notificationIdForReceivable(id))
+  ].map((id) => ({ id }));
+
+  if (cancelIds.length > 0) {
+    await localNotifications.cancel({ notifications: cancelIds });
+  }
+
+  if (notifications.length > 0) {
+    await localNotifications.schedule({ notifications });
+  }
+}
+
+async function ensureReceivableNotificationPermission(localNotifications) {
+  const currentPermission = await localNotifications.checkPermissions?.();
+  if (currentPermission?.display === "granted") return true;
+  if (currentPermission?.display === "denied") return false;
+  if (receivableNotificationPermissionRequested) return false;
+
+  receivableNotificationPermissionRequested = true;
+  const requestedPermission = await localNotifications.requestPermissions?.();
+  return requestedPermission?.display === "granted";
+}
+
+function createReceivableNotification(receivable) {
+  const reminderDate = receivableReminderDate(receivable.dueDate);
+  if (!reminderDate) return null;
+
+  const scheduledAt = nextReceivableReminderTime(reminderDate, receivable.dueDate);
+  if (!scheduledAt) return null;
+
+  return {
+    id: notificationIdForReceivable(receivable.id),
+    title: "Deuda proxima a cobrar",
+    body: `${receivable.debtor}: ${receivable.description} por ${currency(receivable.amount)} vence el ${formatDate(receivable.dueDate)}.`,
+    schedule: {
+      at: scheduledAt,
+      allowWhileIdle: true
+    },
+    extra: {
+      receivableId: receivable.id
+    }
+  };
+}
+
+function receivableReminderDate(dueDate) {
+  if (!dueDate) return null;
+
+  const reminder = new Date(`${dueDate}T09:00:00`);
+  reminder.setDate(reminder.getDate() - 2);
+  return Number.isNaN(reminder.getTime()) ? null : reminder;
+}
+
+function nextReceivableReminderTime(reminderDate, dueDate) {
+  const now = new Date();
+  const dueEnd = new Date(`${dueDate}T23:59:59`);
+  if (Number.isNaN(dueEnd.getTime()) || dueEnd < now) return null;
+
+  if (reminderDate <= now) {
+    return new Date(now.getTime() + 60 * 1000);
+  }
+
+  return reminderDate;
+}
+
+function notificationIdForReceivable(id = "") {
+  const text = `receivable:${id}`;
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+  return (hash % 2_000_000_000) + 1000;
+}
+
+function cancelReceivableNotification(id) {
+  const localNotifications = getLocalNotificationsPlugin();
+  if (!isMobileAppShell() || !localNotifications || !id) return;
+
+  localNotifications
+    .cancel({ notifications: [{ id: notificationIdForReceivable(id) }] })
+    .catch((error) => console.warn("No se pudo cancelar la notificacion de deuda por cobrar", error));
+}
+
+function getLocalNotificationsPlugin() {
+  return (
+    window.LocalNotifications ||
+    window.Capacitor?.Plugins?.LocalNotifications ||
+    window.CapacitorLocalNotifications ||
+    null
+  );
 }
 
 function renderInvestments() {
@@ -2055,6 +2174,9 @@ function normalizeExtraContributions(extraContributions = []) {
 function removeItem(collection, id) {
   const index = collection.findIndex((item) => item.id === id);
   if (index >= 0) {
+    if (collection === state.receivables) {
+      cancelReceivableNotification(id);
+    }
     collection.splice(index, 1);
     rememberDeletedItem(id);
     persist();
