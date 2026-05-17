@@ -1,4 +1,4 @@
-const collectionKeys = ["transactions", "goals", "fixedItems", "investments"];
+const collectionKeys = ["transactions", "goals", "fixedItems", "investments", "receivables"];
 
 export function mergeStateCopies(primaryState = {}, secondaryState = {}) {
   const deletedItemIds = mergeDeletedIds(primaryState.deletedItemIds, secondaryState.deletedItemIds);
@@ -12,6 +12,7 @@ export function mergeStateCopies(primaryState = {}, secondaryState = {}) {
     goals: mergeCollections(primaryState.goals, secondaryState.goals, deletedItems),
     fixedItems: mergeCollections(primaryState.fixedItems, secondaryState.fixedItems, deletedItems),
     investments: mergeCollections(primaryState.investments, secondaryState.investments, deletedItems),
+    receivables: mergeCollections(primaryState.receivables, secondaryState.receivables, deletedItems),
     liquiditySettings: {
       ...(secondaryState.liquiditySettings || {}),
       ...(primaryState.liquiditySettings || {})
@@ -56,6 +57,7 @@ export function stateFingerprint(state = {}) {
     goals: collectionFingerprint(state.goals),
     fixedItems: collectionFingerprint(state.fixedItems),
     investments: collectionFingerprint(state.investments),
+    receivables: collectionFingerprint(state.receivables),
     liquiditySettings: state.liquiditySettings || {}
   });
 }

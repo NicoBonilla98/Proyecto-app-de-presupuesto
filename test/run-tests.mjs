@@ -481,6 +481,7 @@ const tests = [
         fixedItems: [{ id: "fixed-local", description: "Sueldo" }],
         goals: [],
         investments: [{ id: "investment-local", alias: "Poliza" }],
+        receivables: [{ id: "receivable-local", debtor: "Ana" }],
         liquiditySettings: { availableCash: 100 }
       };
       const serverState = {
@@ -488,6 +489,7 @@ const tests = [
         fixedItems: [],
         goals: [],
         investments: [],
+        receivables: [],
         liquiditySettings: { availableCash: 0 }
       };
       const merged = mergeStateCopies(localState, serverState);
@@ -495,8 +497,45 @@ const tests = [
       assert.equal(merged.transactions.length, 1);
       assert.equal(merged.fixedItems.length, 1);
       assert.equal(merged.investments.length, 1);
+      assert.equal(merged.receivables.length, 1);
       assert.equal(merged.liquiditySettings.availableCash, 100);
       assert.equal(hasStoredRecords(merged), true);
+    }
+  },
+  {
+    name: "sincroniza deudas por cobrar",
+    run() {
+      const localState = {
+        receivables: [
+          {
+            id: "debt-1",
+            debtor: "Ana",
+            amount: 50,
+            updatedAt: "2026-05-10T10:00:00.000Z"
+          }
+        ]
+      };
+      const serverState = {
+        receivables: [
+          {
+            id: "debt-1",
+            debtor: "Ana",
+            amount: 75,
+            updatedAt: "2026-05-10T11:00:00.000Z"
+          },
+          {
+            id: "debt-2",
+            debtor: "Luis",
+            amount: 20,
+            updatedAt: "2026-05-10T09:00:00.000Z"
+          }
+        ]
+      };
+      const merged = mergeStateCopies(localState, serverState);
+
+      assert.equal(merged.receivables.length, 2);
+      assert.equal(merged.receivables.find((item) => item.id === "debt-1").amount, 75);
+      assert.equal(hasAllSharedRecords(localState, merged), true);
     }
   },
   {

@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Presupuesto Hogar" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260517-1" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260517-2" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./assets/icon.svg" />
@@ -38,6 +38,7 @@
       <nav class="tab-nav" aria-label="Secciones principales">
         <button type="button" class="tab-button active" data-tab-target="dashboardTab">Dashboard</button>
         <button type="button" class="tab-button" data-tab-target="budgetTab">Presupuesto</button>
+        <button type="button" class="tab-button" data-tab-target="receivablesTab">Deudas por cobrar</button>
         <button type="button" class="tab-button" data-tab-target="goalsTab">Compras futuras</button>
         <button type="button" class="tab-button" data-tab-target="investmentsTab">Inversiones</button>
         <button type="button" class="tab-button" data-tab-target="liquidityTab">Capacidad</button>
@@ -426,6 +427,81 @@
           <span id="budgetHealthAmount">$0.00</span>
         </section>
 
+      </section>
+
+      <section id="receivablesTab" class="tab-panel">
+        <section class="module-hero">
+          <div>
+            <p class="eyebrow">Seguimiento de cobros</p>
+            <h2>Deudas por cobrar</h2>
+            <p>Registra prestamos o valores pendientes y conviertelos en ingresos cuando se cobren.</p>
+          </div>
+        </section>
+
+        <section class="summary-grid receivables-summary" aria-label="Resumen de deudas por cobrar">
+          <article class="metric income">
+            <span>Por cobrar</span>
+            <strong id="receivablePendingTotal">$0.00</strong>
+          </article>
+          <article class="metric savings">
+            <span>Cobrado</span>
+            <strong id="receivableCollectedTotal">$0.00</strong>
+          </article>
+          <article class="metric balance">
+            <span>Deudas activas</span>
+            <strong id="receivablePendingCount">0</strong>
+          </article>
+        </section>
+
+        <section class="workspace receivables-workspace">
+          <form id="receivableForm" class="panel">
+            <div class="panel-heading">
+              <h2>Nueva deuda por cobrar</h2>
+              <p>Guarda deudor, monto, descripcion y fechas de seguimiento.</p>
+            </div>
+
+            <input type="hidden" id="receivableId" />
+
+            <label>
+              Nombre de deudor
+              <input id="receivableDebtor" type="text" placeholder="Ej. Juan Perez" required />
+            </label>
+
+            <label>
+              Descripcion
+              <input id="receivableDescription" type="text" placeholder="Ej. prestamo, adelanto, compra compartida" required />
+            </label>
+
+            <div class="form-row">
+              <label>
+                Monto
+                <input id="receivableAmount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <label>
+                Fecha de deuda
+                <input id="receivableIssuedDate" type="date" required />
+              </label>
+            </div>
+
+            <label>
+              Fecha esperada de cobro
+              <input id="receivableDueDate" type="date" required />
+            </label>
+
+            <div class="button-row">
+              <button type="submit" class="primary">Guardar deuda</button>
+              <button type="button" id="cancelReceivableEdit" class="ghost">Cancelar</button>
+            </div>
+          </form>
+
+          <article class="panel">
+            <div class="panel-heading">
+              <h2>Seguimiento</h2>
+              <p>Al cobrar una deuda se registra un ingreso con la fecha actual.</p>
+            </div>
+            <div id="receivableList" class="item-list"></div>
+          </article>
+        </section>
       </section>
 
       <section id="goalsTab" class="tab-panel">
@@ -839,6 +915,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260517-1"></script>
+    <script type="module" src="./src/app.js?v=20260517-2"></script>
   </body>
 </html>

@@ -158,6 +158,18 @@ const elements = {
   goalTargetDate: document.querySelector("#goalTargetDate"),
   cancelGoalEdit: document.querySelector("#cancelGoalEdit"),
   goalList: document.querySelector("#goalList"),
+  receivablePendingTotal: document.querySelector("#receivablePendingTotal"),
+  receivableCollectedTotal: document.querySelector("#receivableCollectedTotal"),
+  receivablePendingCount: document.querySelector("#receivablePendingCount"),
+  receivableForm: document.querySelector("#receivableForm"),
+  receivableId: document.querySelector("#receivableId"),
+  receivableDebtor: document.querySelector("#receivableDebtor"),
+  receivableDescription: document.querySelector("#receivableDescription"),
+  receivableAmount: document.querySelector("#receivableAmount"),
+  receivableIssuedDate: document.querySelector("#receivableIssuedDate"),
+  receivableDueDate: document.querySelector("#receivableDueDate"),
+  cancelReceivableEdit: document.querySelector("#cancelReceivableEdit"),
+  receivableList: document.querySelector("#receivableList"),
   investmentPrincipalTotal: document.querySelector("#investmentPrincipalTotal"),
   investmentFinalTotal: document.querySelector("#investmentFinalTotal"),
   investmentInterestTotal: document.querySelector("#investmentInterestTotal"),
@@ -208,6 +220,8 @@ elements.variableExpenseBuffer.value = state.liquiditySettings.variableExpenseBu
 elements.includeVariableIncome.checked = state.liquiditySettings.includeVariableIncome;
 elements.goalStartDate.value = todayIso();
 elements.goalTargetDate.value = todayIso();
+elements.receivableIssuedDate.value = todayIso();
+elements.receivableDueDate.value = todayIso();
 elements.investmentStartDate.value = todayIso();
 elements.investmentEndDate.value = todayIso();
 elements.extraContributionDate.value = todayIso();
@@ -300,9 +314,44 @@ elements.goalForm.addEventListener("submit", (event) => {
   render();
 });
 
+function handleReceivableSubmit(event) {
+  event.preventDefault();
+
+  const id = elements.receivableId.value || createId();
+  const existing = state.receivables.find((item) => item.id === id);
+  const receivable = {
+    id,
+    debtor: elements.receivableDebtor.value.trim(),
+    description: elements.receivableDescription.value.trim(),
+    amount: Number(elements.receivableAmount.value),
+    issuedDate: elements.receivableIssuedDate.value,
+    dueDate: elements.receivableDueDate.value,
+    status: existing?.status || "pending",
+    collectedAt: existing?.collectedAt,
+    incomeTransactionId: existing?.incomeTransactionId
+  };
+
+  if (!receivable.debtor || !receivable.description || receivable.amount <= 0) return;
+  if (receivable.dueDate < receivable.issuedDate) {
+    elements.receivableDueDate.setCustomValidity("La fecha esperada de cobro debe ser igual o posterior a la fecha de deuda.");
+    elements.receivableDueDate.reportValidity();
+    return;
+  }
+  elements.receivableDueDate.setCustomValidity("");
+
+  upsert(state.receivables, receivable);
+  resetReceivableForm();
+  persist();
+  render();
+}
+
 elements.cancelGoalEdit.addEventListener("click", resetGoalForm);
 elements.goalStartDate.addEventListener("change", clearGoalDateValidation);
 elements.goalTargetDate.addEventListener("change", clearGoalDateValidation);
+elements.receivableForm.addEventListener("submit", handleReceivableSubmit);
+elements.cancelReceivableEdit.addEventListener("click", resetReceivableForm);
+elements.receivableIssuedDate.addEventListener("change", clearReceivableDateValidation);
+elements.receivableDueDate.addEventListener("change", clearReceivableDateValidation);
 
 elements.investmentForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -441,6 +490,7 @@ function render() {
   renderBudgetProgress(totals, range);
   renderBudgetHealth(totals);
   renderGoals();
+  renderReceivables();
   renderInvestments();
   renderCalendar();
   renderLiquidityCapacity();
@@ -1374,6 +1424,128 @@ function renderFixedItems() {
   });
 }
 
+function renderReceivables() {
+  const receivables = [...state.receivables].sort((a, b) => {
+    const statusOrder = receivableStatus(a).order - receivableStatus(b).order;
+    return statusOrder || (a.dueDate || "").localeCompare(b.dueDate || "");
+  });
+  const pendingReceivables = receivables.filter((item) => item.status !== "collected");
+  const collectedReceivables = receivables.filter((item) => item.status === "collected");
+
+  elements.receivablePendingTotal.textContent = currency(
+    pendingReceivables.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  );
+  elements.receivableCollectedTotal.textContent = currency(
+    collectedReceivables.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  );
+  elements.receivablePendingCount.textContent = String(pendingReceivables.length);
+  elements.receivableList.replaceChildren();
+
+  if (receivables.length === 0) {
+    elements.receivableList.append(emptyState("Aun no hay deudas por cobrar."));
+    return;
+  }
+
+  for (const receivable of receivables) {
+    const status = receivableStatus(receivable);
+    const item = document.createElement("div");
+    item.className = `receivable-card ${status.value}`;
+    item.innerHTML = `
+      <div class="goal-topline">
+        <div>
+          <strong>${escapeHtml(receivable.debtor)}</strong>
+          <span>${escapeHtml(receivable.description)} - ${status.label} - vence ${formatDate(receivable.dueDate)}</span>
+        </div>
+        <div class="item-actions">
+          <strong>${currency(receivable.amount)}</strong>
+          <button type="button" data-view-receivable="${receivable.id}">Ver</button>
+          ${
+            receivable.status === "collected"
+              ? ""
+              : `<button type="button" data-collect-receivable="${receivable.id}">Cobrar</button>`
+          }
+          <button type="button" data-edit-receivable="${receivable.id}">Editar</button>
+          <button type="button" data-delete-receivable="${receivable.id}">Eliminar</button>
+        </div>
+      </div>
+      <dl class="receivable-details is-hidden" data-receivable-detail="${receivable.id}">
+        <div><dt>Fecha de deuda</dt><dd>${formatDate(receivable.issuedDate)}</dd></div>
+        <div><dt>Fecha esperada</dt><dd>${formatDate(receivable.dueDate)}</dd></div>
+        <div><dt>Estado</dt><dd>${status.label}</dd></div>
+        ${
+          receivable.collectedAt
+            ? `<div><dt>Fecha de cobro</dt><dd>${formatDate(receivable.collectedAt)}</dd></div>`
+            : ""
+        }
+      </dl>
+    `;
+    elements.receivableList.append(item);
+  }
+
+  elements.receivableList.querySelectorAll("[data-view-receivable]").forEach((button) => {
+    button.addEventListener("click", () => toggleReceivableDetails(button));
+  });
+
+  elements.receivableList.querySelectorAll("[data-collect-receivable]").forEach((button) => {
+    button.addEventListener("click", () => collectReceivable(button.dataset.collectReceivable));
+  });
+
+  elements.receivableList.querySelectorAll("[data-edit-receivable]").forEach((button) => {
+    button.addEventListener("click", () => editReceivable(button.dataset.editReceivable));
+  });
+
+  elements.receivableList.querySelectorAll("[data-delete-receivable]").forEach((button) => {
+    button.addEventListener("click", () => removeItem(state.receivables, button.dataset.deleteReceivable));
+  });
+}
+
+function receivableStatus(receivable) {
+  if (receivable.status === "collected") {
+    return { value: "collected", label: "Cobrada", order: 2 };
+  }
+
+  if (receivable.dueDate < todayIso()) {
+    return { value: "overdue", label: "Vencida", order: 0 };
+  }
+
+  return { value: "pending", label: "Pendiente", order: 1 };
+}
+
+function toggleReceivableDetails(button) {
+  const detail = elements.receivableList.querySelector(`[data-receivable-detail="${button.dataset.viewReceivable}"]`);
+  if (!detail) return;
+
+  const shouldShow = detail.classList.contains("is-hidden");
+  detail.classList.toggle("is-hidden", !shouldShow);
+  button.textContent = shouldShow ? "Ocultar" : "Ver";
+}
+
+function collectReceivable(id) {
+  const receivable = state.receivables.find((item) => item.id === id);
+  if (!receivable || receivable.status === "collected") return;
+
+  const collectedAt = todayIso();
+  const transaction = stampRecord({
+    id: createId(),
+    kind: "income",
+    category: "unique",
+    incomeCategory: "other",
+    householdMember: "home",
+    description: `${receivable.description} - ${receivable.debtor}`,
+    amount: Number(receivable.amount) || 0,
+    date: collectedAt
+  });
+
+  receivable.status = "collected";
+  receivable.collectedAt = collectedAt;
+  receivable.incomeTransactionId = transaction.id;
+  receivable.updatedAt = new Date().toISOString();
+  state.transactions.unshift(transaction);
+  persist();
+  render();
+  showGoalToast(`Cobro registrado como ingreso: ${currency(transaction.amount)}.`);
+}
+
 function renderInvestments() {
   const summary = summarizeInvestments(state.investments);
   elements.investmentPrincipalTotal.textContent = currency(summary.principal);
@@ -1598,6 +1770,21 @@ function editGoal(id) {
   elements.goalName.focus();
 }
 
+function editReceivable(id) {
+  const receivable = state.receivables.find((item) => item.id === id);
+  if (!receivable) return;
+
+  activateTab("receivablesTab");
+  elements.receivableId.value = receivable.id;
+  elements.receivableDebtor.value = receivable.debtor;
+  elements.receivableDescription.value = receivable.description;
+  elements.receivableAmount.value = receivable.amount;
+  elements.receivableIssuedDate.value = receivable.issuedDate;
+  elements.receivableDueDate.value = receivable.dueDate;
+  clearReceivableDateValidation();
+  elements.receivableDebtor.focus();
+}
+
 function editFixedItem(id) {
   const fixedItem = state.fixedItems.find((item) => item.id === id);
   if (!fixedItem) return;
@@ -1666,6 +1853,14 @@ function resetGoalForm() {
   elements.goalTargetDate.value = todayIso();
 }
 
+function resetReceivableForm() {
+  elements.receivableForm.reset();
+  elements.receivableId.value = "";
+  clearReceivableDateValidation();
+  elements.receivableIssuedDate.value = todayIso();
+  elements.receivableDueDate.value = todayIso();
+}
+
 function resetBudgetForm(kind) {
   elements[`${kind}Form`].reset();
   elements[`${kind}EditId`].value = "";
@@ -1719,6 +1914,10 @@ function resetInvestmentForm() {
 
 function clearGoalDateValidation() {
   elements.goalTargetDate.setCustomValidity("");
+}
+
+function clearReceivableDateValidation() {
+  elements.receivableDueDate.setCustomValidity("");
 }
 
 function clearInvestmentDateValidation() {
@@ -1921,6 +2120,7 @@ function loadState() {
     goals: [],
     fixedItems: [],
     investments: [],
+    receivables: [],
     deletedItemIds: [],
     liquiditySettings: {
       availableCash: 0,
@@ -1935,6 +2135,7 @@ function loadState() {
     return {
       ...fallback,
       ...saved,
+      receivables: Array.isArray(saved?.receivables) ? saved.receivables : fallback.receivables,
       deletedItemIds: Array.isArray(saved?.deletedItemIds) ? saved.deletedItemIds : fallback.deletedItemIds,
       liquiditySettings: {
         ...fallback.liquiditySettings,
