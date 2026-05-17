@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Presupuesto Hogar" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260516-1" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260516-2" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./assets/icon.svg" />
@@ -22,6 +22,7 @@
       </div>
       <div class="header-controls">
         <div id="syncStatus" class="sync-status local" aria-live="polite">Guardado local</div>
+        <button type="button" id="manualSyncButton" class="manual-sync-button is-hidden">Sincronizar</button>
         <div class="period-control" aria-label="Periodo principal">
           <span>Periodo</span>
           <select id="periodSelect">
@@ -839,6 +840,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260516-1"></script>
+    <script type="module" src="./src/app.js?v=20260516-2"></script>
   </body>
 </html>

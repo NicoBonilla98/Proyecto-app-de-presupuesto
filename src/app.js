@@ -55,6 +55,7 @@ const elements = {
   tabButtons: document.querySelectorAll("[data-tab-target]"),
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
+  manualSyncButton: document.querySelector("#manualSyncButton"),
   periodSelect: document.querySelector("#periodSelect"),
   periodRangeLabel: document.querySelector("#periodRangeLabel"),
   dashboardMonth: document.querySelector("#dashboardMonth"),
@@ -228,6 +229,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden) syncFromServer({ userInitiated: true });
 });
 getNetworkConnection()?.addEventListener?.("change", () => syncFromServer({ userInitiated: true }));
+elements.manualSyncButton?.addEventListener("click", () => handleManualSync());
 
 elements.tabButtons.forEach((button) => {
   button.addEventListener("click", () => activateTab(button.dataset.tabTarget));
@@ -2137,14 +2139,19 @@ async function syncFromServer(options = {}) {
   if (!canAttemptServerSync(options)) return;
   if (isSavingServerState) return;
   if (pendingServerSave) {
-    flushServerSave();
+    await flushServerSave(options);
     return;
   }
 
   try {
     const serverState = await readServerState();
     if (!serverState || Object.keys(serverState).length === 0) {
-      if (hasStoredRecords(state)) queueServerSave();
+      if (hasStoredRecords(state)) {
+        queueServerSave();
+      } else {
+        resetSyncBackoff();
+        updateSyncStatus("synced");
+      }
       return;
     }
 
@@ -2288,9 +2295,32 @@ function queueServerSave() {
   }
 }
 
-async function flushServerSave() {
+async function handleManualSync() {
+  if (elements.manualSyncButton) {
+    elements.manualSyncButton.disabled = true;
+  }
+
+  updateSyncStatus("syncing");
+
+  try {
+    const hasUnsyncedLocalState = hasStoredRecords(state) && stateFingerprint(state) !== lastSyncedFingerprint;
+    if (pendingServerSave || hasUnsyncedLocalState) {
+      pendingServerSave = true;
+      await flushServerSave({ force: true, userInitiated: true });
+      return;
+    }
+
+    await syncFromServer({ force: true, userInitiated: true });
+  } finally {
+    if (elements.manualSyncButton) {
+      elements.manualSyncButton.disabled = false;
+    }
+  }
+}
+
+async function flushServerSave(options = {}) {
   if (!pendingServerSave) return;
-  if (!canAttemptServerSync()) return;
+  if (!canAttemptServerSync(options)) return;
 
   pendingServerSave = false;
   isSavingServerState = true;
@@ -2318,6 +2348,10 @@ function reportSyncError(context, error) {
 }
 
 function canAttemptServerSync(options = {}) {
+  if (options.force) {
+    return true;
+  }
+
   if (!navigator.onLine) {
     lastSyncError = "El dispositivo no tiene conexion de red.";
     updateSyncStatus("offline");
@@ -2390,7 +2424,7 @@ function updateSyncStatus(status) {
     synced: "Sincronizado",
     local: "Guardado local",
     offline: "Pendiente de sincronizar",
-    paused: "Guardado local"
+    paused: "Pendiente de sincronizar"
   };
 
   elements.syncStatus.textContent = labels[status] || labels.local;
@@ -2399,6 +2433,17 @@ function updateSyncStatus(status) {
     (status === "offline" || status === "paused") && lastSyncError
       ? `No se pudo sincronizar con ${apiUrl("/api/state")}. ${lastSyncError}`
       : `Servidor de sincronizacion: ${apiUrl("/api/state") || "/api/state"}`;
+  updateManualSyncButton(status);
+}
+
+function updateManualSyncButton(status) {
+  if (!elements.manualSyncButton) return;
+
+  const shouldShow = isMobileAppShell() && (pendingServerSave || status === "offline" || status === "paused");
+  elements.manualSyncButton.classList.toggle("is-hidden", !shouldShow);
+  elements.manualSyncButton.title = shouldShow
+    ? `Intentar sincronizar manualmente con ${apiUrl("/api/state") || "/api/state"}`
+    : "";
 }
 
 function syncControlsFromState() {
