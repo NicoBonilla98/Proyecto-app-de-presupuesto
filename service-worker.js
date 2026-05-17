@@ -1,10 +1,10 @@
-const cacheName = "presupuesto-hogar-pwa-v11";
+const cacheName = "presupuesto-hogar-pwa-v12";
 const appShell = [
   "/",
   "/index.html",
   "/manifest.webmanifest",
-  "/src/app.js?v=20260516-2",
-  "/src/styles.css?v=20260516-2",
+  "/src/app.js?v=20260517-1",
+  "/src/styles.css?v=20260517-1",
   "/src/finance.js",
   "/src/ids.js",
   "/src/liquidity.js",

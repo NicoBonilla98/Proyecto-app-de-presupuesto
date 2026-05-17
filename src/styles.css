@@ -134,28 +134,6 @@ h2 {
   color: var(--muted);
 }
 
-.manual-sync-button {
-  justify-self: end;
-  width: fit-content;
-  border: 1px solid var(--green);
-  border-radius: 999px;
-  background: #ffffff;
-  color: var(--green-strong);
-  padding: 0.45rem 0.9rem;
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.manual-sync-button:hover,
-.manual-sync-button:focus-visible {
-  background: var(--green-soft);
-}
-
-.manual-sync-button:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
 .period-control select,
 input,
 select {
@@ -1672,10 +1650,6 @@ button.danger {
   .sync-status {
     width: 100%;
     text-align: center;
-  }
-
-  .manual-sync-button {
-    width: 100%;
   }
 
   .tab-nav {
