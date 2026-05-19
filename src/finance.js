@@ -157,6 +157,7 @@ export function generateFixedTransactions(fixedItems, range) {
       id: `${item.id}:${date}`,
       fixedItemId: item.id,
       fixedSource: true,
+      profileId: item.profileId,
       kind: item.kind,
       category: "fixed",
       description: item.description,

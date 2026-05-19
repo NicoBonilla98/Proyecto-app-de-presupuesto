@@ -22,8 +22,23 @@ import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./li
 import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js";
 
 const storageKey = "presupuesto-hogar:v1";
+const activeProfileKey = "presupuesto-hogar:active-profile";
 const syncServerUrlKey = "presupuesto-hogar:sync-server-url";
 const defaultMobileSyncServerUrl = "http://192.168.100.54";
+const householdProfiles = [
+  { value: "luzmila", label: "Luzmila" },
+  { value: "gonzalo", label: "Gonzalo" },
+  { value: "nicolas", label: "Nicolás" },
+  { value: "emilio", label: "Emilio" }
+];
+const defaultProfileId = "nicolas";
+const profileMigrationDefaults = {
+  transactions: "nicolas",
+  fixedItems: "nicolas",
+  goals: "nicolas",
+  receivables: "nicolas",
+  investments: "luzmila"
+};
 let hasSavedLocalState = Boolean(localStorage.getItem(storageKey));
 const syncRetryDelay = 15000;
 const maxSyncRetryDelay = 5 * 60 * 1000;
@@ -57,6 +72,7 @@ const elements = {
   tabButtons: document.querySelectorAll("[data-tab-target]"),
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
+  profileSelect: document.querySelector("#profileSelect"),
   periodSelect: document.querySelector("#periodSelect"),
   periodRangeLabel: document.querySelector("#periodRangeLabel"),
   dashboardMonth: document.querySelector("#dashboardMonth"),
@@ -215,11 +231,6 @@ elements.incomeDate.value = todayIso();
 elements.incomeStartDate.value = todayIso();
 elements.expenseDate.value = todayIso();
 elements.expenseStartDate.value = todayIso();
-elements.availableCash.value = state.liquiditySettings.availableCash || "";
-elements.projectionMonths.value = state.liquiditySettings.projectionMonths;
-elements.safetyMonths.value = state.liquiditySettings.safetyMonths;
-elements.variableExpenseBuffer.value = state.liquiditySettings.variableExpenseBuffer;
-elements.includeVariableIncome.checked = state.liquiditySettings.includeVariableIncome;
 elements.goalStartDate.value = todayIso();
 elements.goalTargetDate.value = todayIso();
 elements.receivableIssuedDate.value = todayIso();
@@ -227,9 +238,9 @@ elements.receivableDueDate.value = todayIso();
 elements.investmentStartDate.value = todayIso();
 elements.investmentEndDate.value = todayIso();
 elements.extraContributionDate.value = todayIso();
-elements.periodSelect.value = state.period;
 elements.dashboardMonth.value = dashboardState.month;
 elements.dashboardCompareMonth.value = dashboardState.compareMonth;
+syncControlsFromState();
 
 updateBudgetFormFields("income");
 updateBudgetFormFields("expense");
@@ -252,6 +263,13 @@ elements.tabButtons.forEach((button) => {
 elements.periodSelect.addEventListener("change", () => {
   state.period = elements.periodSelect.value;
   persist();
+  render();
+});
+elements.profileSelect.addEventListener("change", () => {
+  setActiveProfile(elements.profileSelect.value);
+  syncControlsFromState();
+  resetProfileForms();
+  persistLocalState();
   render();
 });
 elements.dashboardMonth.addEventListener("change", () => {
@@ -292,8 +310,10 @@ elements.purchaseName.addEventListener("input", () => renderPurchaseAffordabilit
 elements.goalForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
+  const existingGoal = elements.goalId.value ? state.goals.find((item) => item.id === elements.goalId.value) : null;
   const goal = {
     id: elements.goalId.value || createId(),
+    profileId: existingGoal?.profileId || currentProfileId(),
     name: elements.goalName.value.trim(),
     target: Number(elements.goalTarget.value),
     saved: Number(elements.goalSaved.value || 0),
@@ -323,6 +343,7 @@ function handleReceivableSubmit(event) {
   const existing = state.receivables.find((item) => item.id === id);
   const receivable = {
     id,
+    profileId: existing?.profileId || currentProfileId(),
     debtor: elements.receivableDebtor.value.trim(),
     description: elements.receivableDescription.value.trim(),
     amount: Number(elements.receivableAmount.value),
@@ -358,8 +379,12 @@ elements.receivableDueDate.addEventListener("change", clearReceivableDateValidat
 elements.investmentForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
+  const existingInvestment = elements.investmentId.value
+    ? state.investments.find((item) => item.id === elements.investmentId.value)
+    : null;
   const investment = {
     id: elements.investmentId.value || createId(),
+    profileId: existingInvestment?.profileId || currentProfileId(),
     alias: elements.investmentAlias.value.trim(),
     bank: elements.investmentBank.value.trim(),
     productType: elements.investmentProductType.value,
@@ -468,6 +493,54 @@ function registerServiceWorker() {
   });
 }
 
+function currentProfileId() {
+  return normalizeProfileId(state.activeProfileId);
+}
+
+function setActiveProfile(profileId) {
+  state.activeProfileId = normalizeProfileId(profileId);
+  localStorage.setItem(activeProfileKey, state.activeProfileId);
+  state.liquiditySettings = currentLiquiditySettings();
+}
+
+function normalizeProfileId(profileId) {
+  return householdProfiles.some((profile) => profile.value === profileId) ? profileId : defaultProfileId;
+}
+
+function profileTransactions() {
+  return filterRecordsByProfile(state.transactions, profileMigrationDefaults.transactions);
+}
+
+function profileFixedItems() {
+  return filterRecordsByProfile(state.fixedItems, profileMigrationDefaults.fixedItems);
+}
+
+function profileGoals() {
+  return filterRecordsByProfile(state.goals, profileMigrationDefaults.goals);
+}
+
+function profileInvestments() {
+  return filterRecordsByProfile(state.investments, profileMigrationDefaults.investments);
+}
+
+function profileReceivables() {
+  return filterRecordsByProfile(state.receivables, profileMigrationDefaults.receivables);
+}
+
+function currentProfileData() {
+  return {
+    transactions: profileTransactions(),
+    fixedItems: profileFixedItems(),
+    goals: profileGoals(),
+    investments: profileInvestments(),
+    receivables: profileReceivables()
+  };
+}
+
+function filterRecordsByProfile(records, fallbackProfileId) {
+  return asArray(records).filter((item) => (item.profileId || fallbackProfileId) === currentProfileId());
+}
+
 function render() {
   const range = getPeriodRange(todayIso(), state.period);
   const budgetTransactions = getBudgetTransactions(range);
@@ -476,7 +549,8 @@ function render() {
   const dashboardTransactions = getBudgetTransactions(dashboardRange);
   const dashboardTotals = calculateTotals(dashboardTransactions, dashboardRange);
   const dashboardCompareRange = monthRangeFromKey(dashboardState.compareMonth);
-  const mainGoal = state.goals[0];
+  const goals = profileGoals();
+  const mainGoal = goals[0];
   const savingPlan = mainGoal ? calculateSavingsPlan(mainGoal, "monthly") : { amount: 0 };
 
   elements.incomeTotal.textContent = currency(totals.income);
@@ -532,8 +606,10 @@ function handleBudgetSubmit(event, kind) {
   if (!description || amount <= 0) return;
 
   if (type === "fixed") {
+    const existingFixedItem = editId ? state.fixedItems.find((item) => item.id === editId) : null;
     const fixedItem = {
       id: editId || createId(),
+      profileId: existingFixedItem?.profileId || currentProfileId(),
       kind,
       frequency: elements[`${kind}Frequency`].value,
       description,
@@ -557,8 +633,11 @@ function handleBudgetSubmit(event, kind) {
       state.fixedItems.unshift(stampRecord(fixedItem));
     }
   } else {
+    const existingTransaction =
+      editMode === "transaction" && editId ? state.transactions.find((item) => item.id === editId) : null;
     const transaction = {
       id: editMode === "transaction" && editId ? editId : createId(),
+      profileId: existingTransaction?.profileId || currentProfileId(),
       kind,
       category: type,
       incomeCategory: kind === "income" ? elements.incomeCategory.value : undefined,
@@ -672,7 +751,9 @@ function renderBudgetProgress(totals, range) {
 }
 
 function renderDashboard(range, budgetTransactions, totals, compareRange) {
-  const investmentRows = state.investments.map((investment) => ({
+  const investments = profileInvestments();
+  const goals = profileGoals();
+  const investmentRows = investments.map((investment) => ({
     investment,
     result: calculateInvestment(investment)
   }));
@@ -682,8 +763,8 @@ function renderDashboard(range, budgetTransactions, totals, compareRange) {
   const savingsAccountsTotal = investmentRows
     .filter((row) => ["programmed_savings", "flexible_savings"].includes(row.investment.productType))
     .reduce((sum, row) => sum + row.result.finalAmount, 0);
-  const goalsTarget = state.goals.reduce((sum, goal) => sum + (Number(goal.target) || 0), 0);
-  const goalsSaved = state.goals.reduce((sum, goal) => sum + (Number(goal.saved) || 0), 0);
+  const goalsTarget = goals.reduce((sum, goal) => sum + (Number(goal.target) || 0), 0);
+  const goalsSaved = goals.reduce((sum, goal) => sum + (Number(goal.saved) || 0), 0);
 
   elements.dashboardSavingsAccounts.textContent = currency(savingsAccountsTotal);
   elements.dashboardPolicies.textContent = currency(policiesTotal);
@@ -855,14 +936,15 @@ function renderDashboardInvestments(rows) {
 }
 
 function renderDashboardGoals() {
+  const goals = profileGoals();
   elements.dashboardGoalsList.replaceChildren();
 
-  if (state.goals.length === 0) {
+  if (goals.length === 0) {
     elements.dashboardGoalsList.append(emptyState("Aun no hay compras futuras."));
     return;
   }
 
-  for (const goal of state.goals.slice(0, 4)) {
+  for (const goal of goals.slice(0, 4)) {
     const progress = goal.target > 0 ? Math.min(((goal.saved || 0) / goal.target) * 100, 100) : 0;
     const item = document.createElement("article");
     item.className = "dashboard-goal-card";
@@ -975,7 +1057,7 @@ function buildExpenseChangeAlerts(currentDate) {
 }
 
 function buildPolicyRenewalAlerts(currentDate) {
-  return state.investments
+  return profileInvestments()
     .filter((investment) => investmentNeedsRenewalAlert(investment, currentDate))
     .sort((a, b) => a.endDate.localeCompare(b.endDate))
     .slice(0, 3)
@@ -990,15 +1072,11 @@ function buildPolicyRenewalAlerts(currentDate) {
 }
 
 function buildLiquiditySafetyAlerts(currentDate) {
+  const data = currentProfileData();
   const result = calculateInvestmentCapacity(
+    data,
     {
-      transactions: state.transactions,
-      fixedItems: state.fixedItems,
-      goals: state.goals,
-      investments: state.investments
-    },
-    {
-      ...state.liquiditySettings,
+      ...currentLiquiditySettings(),
       startDate: currentDate
     }
   );
@@ -1014,26 +1092,25 @@ function buildLiquiditySafetyAlerts(currentDate) {
 }
 
 function updateLiquiditySettings() {
-  state.liquiditySettings = {
+  const settings = {
     availableCash: Number(elements.availableCash.value || 0),
     projectionMonths: Number(elements.projectionMonths.value || 6),
     safetyMonths: Number(elements.safetyMonths.value || 2),
     variableExpenseBuffer: Number(elements.variableExpenseBuffer.value || 0),
     includeVariableIncome: elements.includeVariableIncome.checked
   };
+  state.profileSettings = normalizeProfileSettings(state.profileSettings);
+  state.profileSettings[currentProfileId()] = settings;
+  state.liquiditySettings = settings;
 }
 
 function renderLiquidityCapacity() {
   updateLiquiditySettings();
+  const data = currentProfileData();
   const result = calculateInvestmentCapacity(
+    data,
     {
-      transactions: state.transactions,
-      fixedItems: state.fixedItems,
-      goals: state.goals,
-      investments: state.investments
-    },
-    {
-      ...state.liquiditySettings,
+      ...currentLiquiditySettings(),
       startDate: todayIso()
     }
   );
@@ -1055,15 +1132,11 @@ function renderLiquidityCapacity() {
 function renderPurchaseAffordability() {
   const purchaseAmount = Number(elements.purchaseAmount.value || 0);
   const purchaseName = elements.purchaseName.value.trim();
+  const data = currentProfileData();
   const result = evaluatePurchaseAffordability(
+    data,
     {
-      transactions: state.transactions,
-      fixedItems: state.fixedItems,
-      goals: state.goals,
-      investments: state.investments
-    },
-    {
-      ...state.liquiditySettings,
+      ...currentLiquiditySettings(),
       startDate: todayIso()
     },
     purchaseAmount
@@ -1153,14 +1226,15 @@ function renderTransactions(range, budgetTransactions = getBudgetTransactions(ra
 }
 
 function renderGoals() {
+  const goals = profileGoals();
   elements.goalList.replaceChildren();
 
-  if (state.goals.length === 0) {
+  if (goals.length === 0) {
     elements.goalList.append(emptyState());
     return;
   }
 
-  for (const goal of state.goals) {
+  for (const goal of goals) {
     const plan = calculateSavingsPlan(goal, "monthly");
     const calendar = createSavingCalendar(goal);
     const progress = Math.min(((goal.saved || 0) / goal.target) * 100, 100);
@@ -1250,7 +1324,7 @@ function handleGoalContribution(event) {
   event.preventDefault();
 
   const form = event.currentTarget;
-  const goal = state.goals.find((item) => item.id === form.dataset.contributionForm);
+  const goal = profileGoals().find((item) => item.id === form.dataset.contributionForm);
   const input = form.querySelector("input");
   const feedback = form.querySelector(".contribution-feedback");
   const amount = Number(input.value);
@@ -1282,7 +1356,7 @@ function handleGoalContribution(event) {
 }
 
 function handleAutoGoalContribution(goalId) {
-  const goal = state.goals.find((item) => item.id === goalId);
+  const goal = profileGoals().find((item) => item.id === goalId);
   if (!goal) return;
 
   const currentMonth = todayIso().slice(0, 7);
@@ -1327,6 +1401,7 @@ function handleAutoGoalContribution(goalId) {
   state.transactions.unshift(
     stampRecord({
       id: createId(),
+      profileId: goal.profileId || currentProfileId(),
       kind: "expense",
       category: "unique",
       expenseCategory: "savings",
@@ -1392,7 +1467,7 @@ function showGoalToastNow(text) {
 }
 
 function renderFixedItems() {
-  const activeItems = state.fixedItems.filter((item) => !item.endDate || item.endDate >= todayIso());
+  const activeItems = profileFixedItems().filter((item) => !item.endDate || item.endDate >= todayIso());
   elements.fixedItemList.replaceChildren();
 
   if (activeItems.length === 0) {
@@ -1428,7 +1503,7 @@ function renderFixedItems() {
 }
 
 function renderReceivables() {
-  const receivables = [...state.receivables].sort((a, b) => {
+  const receivables = [...profileReceivables()].sort((a, b) => {
     const statusOrder = receivableStatus(a).order - receivableStatus(b).order;
     return statusOrder || (a.dueDate || "").localeCompare(b.dueDate || "");
   });
@@ -1524,12 +1599,13 @@ function toggleReceivableDetails(button) {
 }
 
 function collectReceivable(id) {
-  const receivable = state.receivables.find((item) => item.id === id);
+  const receivable = profileReceivables().find((item) => item.id === id);
   if (!receivable || receivable.status === "collected") return;
 
   const collectedAt = todayIso();
   const transaction = stampRecord({
     id: createId(),
+    profileId: receivable.profileId || currentProfileId(),
     kind: "income",
     category: "unique",
     incomeCategory: "other",
@@ -1666,7 +1742,8 @@ function getLocalNotificationsPlugin() {
 }
 
 function renderInvestments() {
-  const summary = summarizeInvestments(state.investments);
+  const profileInvestmentRows = profileInvestments();
+  const summary = summarizeInvestments(profileInvestmentRows);
   elements.investmentPrincipalTotal.textContent = currency(summary.principal);
   elements.investmentFinalTotal.textContent = currency(summary.finalAmount);
   elements.investmentInterestTotal.textContent = currency(summary.interest);
@@ -1674,12 +1751,12 @@ function renderInvestments() {
   renderInvestmentAlerts();
   elements.investmentList.replaceChildren();
 
-  if (state.investments.length === 0) {
+  if (profileInvestmentRows.length === 0) {
     elements.investmentList.append(emptyState());
     return;
   }
 
-  const investments = filterInvestments(state.investments).sort((a, b) => a.endDate.localeCompare(b.endDate));
+  const investments = filterInvestments(profileInvestmentRows).sort((a, b) => a.endDate.localeCompare(b.endDate));
 
   if (investments.length === 0) {
     elements.investmentList.append(emptyState("No hay inversiones con esos filtros."));
@@ -1747,7 +1824,7 @@ function filterInvestments(investments) {
 }
 
 function renderInvestmentAlerts() {
-  const alerts = state.investments
+  const alerts = profileInvestments()
     .filter((investment) => investmentNeedsRenewalAlert(investment))
     .sort((a, b) => a.endDate.localeCompare(b.endDate));
 
@@ -1811,13 +1888,13 @@ function groupCalendarEvents() {
       label: transaction.kind === "income" ? `Ingreso: ${transaction.description}` : `Gasto: ${transaction.description}`,
       amount: transaction.amount
     })),
-    ...state.investments.map((investment) => ({
+    ...profileInvestments().map((investment) => ({
       date: investment.endDate,
       type: "policy",
       label: `Vence inversion: ${investment.alias || investment.name}`,
       amount: calculateInvestment(investment).finalAmount
     })),
-    ...state.goals
+    ...profileGoals()
       .filter((goal) => goal.targetDate)
       .map((goal) => ({
         date: goal.targetDate,
@@ -1852,7 +1929,7 @@ function renderCategoryOptions() {
 }
 
 function editTransaction(id) {
-  const transaction = state.transactions.find((item) => item.id === id);
+  const transaction = profileTransactions().find((item) => item.id === id);
   if (!transaction) return;
 
   const kind = transaction.kind;
@@ -1876,7 +1953,7 @@ function editTransaction(id) {
 }
 
 function editGoal(id) {
-  const goal = state.goals.find((item) => item.id === id);
+  const goal = profileGoals().find((item) => item.id === id);
   if (!goal) return;
 
   activateTab("goalsTab");
@@ -1890,7 +1967,7 @@ function editGoal(id) {
 }
 
 function editReceivable(id) {
-  const receivable = state.receivables.find((item) => item.id === id);
+  const receivable = profileReceivables().find((item) => item.id === id);
   if (!receivable) return;
 
   activateTab("receivablesTab");
@@ -1905,7 +1982,7 @@ function editReceivable(id) {
 }
 
 function editFixedItem(id) {
-  const fixedItem = state.fixedItems.find((item) => item.id === id);
+  const fixedItem = profileFixedItems().find((item) => item.id === id);
   if (!fixedItem) return;
 
   const kind = fixedItem.kind;
@@ -1930,7 +2007,7 @@ function editFixedItem(id) {
 }
 
 function editInvestment(id) {
-  const investment = state.investments.find((item) => item.id === id);
+  const investment = profileInvestments().find((item) => item.id === id);
   if (!investment) return;
 
   activateTab("investmentsTab");
@@ -2029,6 +2106,14 @@ function resetInvestmentForm() {
   investmentInterestEdited = false;
   updateInvestmentProductFields();
   updateInvestmentExpectedInterest({ force: true });
+}
+
+function resetProfileForms() {
+  resetBudgetForm("income");
+  resetBudgetForm("expense");
+  resetGoalForm();
+  resetReceivableForm();
+  resetInvestmentForm();
 }
 
 function clearGoalDateValidation() {
@@ -2191,7 +2276,7 @@ function rememberDeletedItem(id) {
 }
 
 function stopFixedItem(id) {
-  const fixedItem = state.fixedItems.find((item) => item.id === id);
+  const fixedItem = profileFixedItems().find((item) => item.id === id);
   if (!fixedItem) return;
 
   fixedItem.endDate = addDaysIso(todayIso(), -1);
@@ -2235,8 +2320,19 @@ function stampRecord(item, previousItem = null) {
   };
 }
 
-function loadState() {
-  const fallback = {
+function defaultLiquiditySettings() {
+  return {
+    availableCash: 0,
+    projectionMonths: 6,
+    safetyMonths: 2,
+    variableExpenseBuffer: 10,
+    includeVariableIncome: false
+  };
+}
+
+function createFallbackState() {
+  return {
+    activeProfileId: getStoredActiveProfileId(),
     period: "monthly",
     transactions: [],
     goals: [],
@@ -2244,29 +2340,113 @@ function loadState() {
     investments: [],
     receivables: [],
     deletedItemIds: [],
-    liquiditySettings: {
-      availableCash: 0,
-      projectionMonths: 6,
-      safetyMonths: 2,
-      variableExpenseBuffer: 10,
-      includeVariableIncome: false
-    }
+    profileSettings: normalizeProfileSettings(),
+    liquiditySettings: defaultLiquiditySettings()
   };
+}
+
+function loadState() {
+  const fallback = createFallbackState();
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
-    return {
+    return migrateProfileState({
       ...fallback,
       ...saved,
+      activeProfileId: getStoredActiveProfileId() || saved?.activeProfileId || fallback.activeProfileId,
+      transactions: Array.isArray(saved?.transactions) ? saved.transactions : fallback.transactions,
+      goals: Array.isArray(saved?.goals) ? saved.goals : fallback.goals,
+      fixedItems: Array.isArray(saved?.fixedItems) ? saved.fixedItems : fallback.fixedItems,
+      investments: Array.isArray(saved?.investments) ? saved.investments : fallback.investments,
       receivables: Array.isArray(saved?.receivables) ? saved.receivables : fallback.receivables,
       deletedItemIds: Array.isArray(saved?.deletedItemIds) ? saved.deletedItemIds : fallback.deletedItemIds,
+      profileSettings: normalizeProfileSettings(saved?.profileSettings, saved?.liquiditySettings),
       liquiditySettings: {
-        ...fallback.liquiditySettings,
+        ...defaultLiquiditySettings(),
         ...(saved?.liquiditySettings || {})
       }
-    };
+    });
   } catch {
-    return fallback;
+    return migrateProfileState(fallback);
   }
+}
+
+function migrateProfileState(sourceState = {}) {
+  const activeProfileId = normalizeProfileId(sourceState.activeProfileId || getStoredActiveProfileId());
+  const profileSettings = normalizeProfileSettings(sourceState.profileSettings, sourceState.liquiditySettings);
+
+  return {
+    ...sourceState,
+    activeProfileId,
+    transactions: assignMissingProfile(sourceState.transactions, profileMigrationDefaults.transactions),
+    goals: assignMissingProfile(sourceState.goals, profileMigrationDefaults.goals),
+    fixedItems: assignMissingProfile(sourceState.fixedItems, profileMigrationDefaults.fixedItems),
+    investments: assignMissingProfile(sourceState.investments, profileMigrationDefaults.investments),
+    receivables: assignMissingProfile(sourceState.receivables, profileMigrationDefaults.receivables),
+    deletedItemIds: asArray(sourceState.deletedItemIds),
+    profileSettings,
+    liquiditySettings: {
+      ...defaultLiquiditySettings(),
+      ...(profileSettings[activeProfileId] || {})
+    }
+  };
+}
+
+function assignMissingProfile(records, fallbackProfileId) {
+  return asArray(records).map((item) => ({
+    ...item,
+    profileId: item.profileId || fallbackProfileId
+  }));
+}
+
+function normalizeProfileSettings(profileSettings = {}, legacyLiquiditySettings = null) {
+  const settings = Object.fromEntries(
+    householdProfiles.map((profile) => [profile.value, defaultLiquiditySettings()])
+  );
+  const hasProfileSettings = profileSettings && typeof profileSettings === "object" && Object.keys(profileSettings).length > 0;
+  let hasCustomProfileSettings = false;
+
+  if (hasProfileSettings) {
+    for (const profile of householdProfiles) {
+      settings[profile.value] = {
+        ...settings[profile.value],
+        ...(profileSettings[profile.value] || {})
+      };
+      if (!matchesDefaultLiquiditySettings(settings[profile.value])) {
+        hasCustomProfileSettings = true;
+      }
+    }
+  }
+
+  if ((!hasProfileSettings || !hasCustomProfileSettings) && legacyLiquiditySettings && typeof legacyLiquiditySettings === "object") {
+    settings[defaultProfileId] = {
+      ...settings[defaultProfileId],
+      ...legacyLiquiditySettings
+    };
+  }
+
+  return settings;
+}
+
+function matchesDefaultLiquiditySettings(settings = {}) {
+  const defaults = defaultLiquiditySettings();
+  return Object.keys(defaults).every((key) => settings[key] === defaults[key]);
+}
+
+function currentLiquiditySettings() {
+  state.profileSettings = normalizeProfileSettings(state.profileSettings, state.liquiditySettings);
+  state.liquiditySettings = {
+    ...defaultLiquiditySettings(),
+    ...(state.profileSettings[currentProfileId()] || {})
+  };
+  return state.liquiditySettings;
+}
+
+function getStoredActiveProfileId() {
+  return normalizeProfileId(localStorage.getItem(activeProfileKey) || defaultProfileId);
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
 }
 
 function persist() {
@@ -2407,7 +2587,7 @@ function normalizeSearch(value) {
 }
 
 function getBudgetTransactions(range) {
-  return [...state.transactions, ...generateFixedTransactions(state.fixedItems, range)];
+  return [...profileTransactions(), ...generateFixedTransactions(profileFixedItems(), range)];
 }
 
 function addDaysIso(date, days) {
@@ -2494,7 +2674,10 @@ function applyServerState(serverState, preferServer) {
   const previousFingerprint = stateFingerprint(state);
   const reconciledState = preferServer ? mergeStateCopies(serverState, state) : mergeStateCopies(state, serverState);
 
-  Object.assign(state, reconciledState);
+  Object.assign(state, migrateProfileState({
+    ...reconciledState,
+    activeProfileId: getStoredActiveProfileId()
+  }));
   persistLocalState();
   syncControlsFromState();
 
@@ -2507,7 +2690,10 @@ function applyServerState(serverState, preferServer) {
 
 async function saveServerState() {
   const latest = await readServerState();
-  const mergedState = mergeStateCopies(state, latest);
+  const mergedState = migrateProfileState({
+    ...mergeStateCopies(state, latest),
+    activeProfileId: getStoredActiveProfileId()
+  });
   const savedState = await requestJson("/api/state", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -2518,8 +2704,12 @@ async function saveServerState() {
     throw new Error("La copia central no confirmo todos los registros.");
   }
 
-  Object.assign(state, mergeStateCopies(savedState, state));
+  Object.assign(state, migrateProfileState({
+    ...mergeStateCopies(savedState, state),
+    activeProfileId: getStoredActiveProfileId()
+  }));
   persistLocalState();
+  syncControlsFromState();
   lastSyncedFingerprint = stateFingerprint(state);
   resetSyncBackoff();
   updateSyncStatus("synced");
@@ -2725,20 +2915,17 @@ function updateSyncStatus(status) {
 }
 
 function syncControlsFromState() {
-  if (!state.liquiditySettings) {
-    state.liquiditySettings = {
-      availableCash: 0,
-      projectionMonths: 6,
-      safetyMonths: 2,
-      variableExpenseBuffer: 10,
-      includeVariableIncome: false
-    };
-  }
+  Object.assign(state, migrateProfileState({
+    ...state,
+    activeProfileId: getStoredActiveProfileId()
+  }));
+  const settings = currentLiquiditySettings();
 
+  elements.profileSelect.value = currentProfileId();
   elements.periodSelect.value = state.period;
-  elements.availableCash.value = state.liquiditySettings.availableCash || "";
-  elements.projectionMonths.value = state.liquiditySettings.projectionMonths;
-  elements.safetyMonths.value = state.liquiditySettings.safetyMonths;
-  elements.variableExpenseBuffer.value = state.liquiditySettings.variableExpenseBuffer;
-  elements.includeVariableIncome.checked = state.liquiditySettings.includeVariableIncome;
+  elements.availableCash.value = settings.availableCash || "";
+  elements.projectionMonths.value = settings.projectionMonths;
+  elements.safetyMonths.value = settings.safetyMonths;
+  elements.variableExpenseBuffer.value = settings.variableExpenseBuffer;
+  elements.includeVariableIncome.checked = settings.includeVariableIncome;
 }

@@ -13,6 +13,7 @@ export function mergeStateCopies(primaryState = {}, secondaryState = {}) {
     fixedItems: mergeCollections(primaryState.fixedItems, secondaryState.fixedItems, deletedItems),
     investments: mergeCollections(primaryState.investments, secondaryState.investments, deletedItems),
     receivables: mergeCollections(primaryState.receivables, secondaryState.receivables, deletedItems),
+    profileSettings: mergeProfileSettings(primaryState.profileSettings, secondaryState.profileSettings),
     liquiditySettings: {
       ...(secondaryState.liquiditySettings || {}),
       ...(primaryState.liquiditySettings || {})
@@ -58,6 +59,7 @@ export function stateFingerprint(state = {}) {
     fixedItems: collectionFingerprint(state.fixedItems),
     investments: collectionFingerprint(state.investments),
     receivables: collectionFingerprint(state.receivables),
+    profileSettings: state.profileSettings || {},
     liquiditySettings: state.liquiditySettings || {}
   });
 }
@@ -98,6 +100,19 @@ function asArray(value) {
 
 function mergeDeletedIds(primaryValue, secondaryValue) {
   return [...new Set([...asArray(primaryValue), ...asArray(secondaryValue)])];
+}
+
+function mergeProfileSettings(primaryValue = {}, secondaryValue = {}) {
+  const result = { ...(secondaryValue || {}) };
+
+  for (const key of Object.keys(primaryValue || {})) {
+    result[key] = {
+      ...(secondaryValue?.[key] || {}),
+      ...(primaryValue[key] || {})
+    };
+  }
+
+  return result;
 }
 
 function collectionFingerprint(value) {

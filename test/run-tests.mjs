@@ -539,6 +539,28 @@ const tests = [
     }
   },
   {
+    name: "sincroniza configuraciones por perfil",
+    run() {
+      const localState = {
+        profileSettings: {
+          nicolas: { availableCash: 500, projectionMonths: 6 }
+        }
+      };
+      const serverState = {
+        profileSettings: {
+          luzmila: { availableCash: 1200, projectionMonths: 4 },
+          nicolas: { availableCash: 100, safetyMonths: 2 }
+        }
+      };
+      const merged = mergeStateCopies(localState, serverState);
+
+      assert.equal(merged.profileSettings.nicolas.availableCash, 500);
+      assert.equal(merged.profileSettings.nicolas.safetyMonths, 2);
+      assert.equal(merged.profileSettings.luzmila.availableCash, 1200);
+      assert.ok(stateFingerprint(merged).includes("profileSettings"));
+    }
+  },
+  {
     name: "reconcilia servidor con navegador nuevo",
     run() {
       const localState = {
