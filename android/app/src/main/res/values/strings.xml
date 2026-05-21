@@ -2,6 +2,12 @@
 <resources>
     <string name="app_name">Presupuesto Hogar</string>
     <string name="title_activity_main">Presupuesto Hogar</string>
+    <string name="app_lock_title">Desbloqueo requerido</string>
+    <string name="app_lock_message">Confirma tu identidad para abrir Presupuesto Hogar.</string>
+    <string name="app_lock_setup_title">Bloqueo del telefono requerido</string>
+    <string name="app_lock_setup_message">Para proteger tus finanzas, configura un patron, PIN o contrasena en Android antes de usar la app.</string>
+    <string name="app_lock_setup_action">Abrir seguridad</string>
+    <string name="app_lock_close_action">Cerrar app</string>
     <string name="package_name">com.presupuestohogar.app</string>
     <string name="custom_url_scheme">com.presupuestohogar.app</string>
 </resources>
