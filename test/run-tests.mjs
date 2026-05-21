@@ -383,7 +383,7 @@ const tests = [
     }
   },
   {
-    name: "calcula ahorro programado con aportes mensuales",
+    name: "calcula ahorro programado desde la fecha del primer abono mensual",
     run() {
       const result = calculateInvestment(
         {
@@ -391,6 +391,7 @@ const tests = [
           principal: 1000,
           rate: 12,
           monthlyContribution: 100,
+          firstContributionDate: "2026-02-01",
           ratePeriod: "annual",
           interestType: "simple",
           startDate: "2026-01-01",
@@ -399,9 +400,35 @@ const tests = [
         "2026-02-01"
       );
 
-      assert.equal(result.months, 3);
-      assert.equal(result.totalContributions, 300);
-      assert.ok(result.finalAmount > 1300);
+      assert.equal(result.months, 2);
+      assert.equal(result.totalMonthlyContributions, 200);
+      assert.equal(result.totalContributions, 200);
+      assert.ok(result.finalAmount > 1200);
+      assert.ok(result.interest > 0);
+    }
+  },
+  {
+    name: "permite ahorro programado con capital inicial cero y primer aporte al mes siguiente",
+    run() {
+      const result = calculateInvestment(
+        {
+          productType: "programmed_savings",
+          principal: 0,
+          rate: 12,
+          monthlyContribution: 100,
+          ratePeriod: "annual",
+          interestType: "simple",
+          startDate: "2026-05-20",
+          endDate: "2027-05-20"
+        },
+        "2026-05-20"
+      );
+
+      assert.equal(result.firstContributionDate, "2026-06-20");
+      assert.equal(result.months, 12);
+      assert.equal(result.totalMonthlyContributions, 1200);
+      assert.equal(result.totalContributions, 1200);
+      assert.ok(result.finalAmount > 1200);
       assert.ok(result.interest > 0);
     }
   },

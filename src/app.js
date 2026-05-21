@@ -16,10 +16,10 @@ import {
   summarizeInvestments,
   todayIso,
   validateDateWindow
-} from "./finance.js?v=20260520-2";
-import { createId } from "./ids.js?v=20260520-2";
-import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js?v=20260520-2";
-import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js?v=20260520-2";
+} from "./finance.js?v=20260520-3";
+import { createId } from "./ids.js?v=20260520-3";
+import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js?v=20260520-3";
+import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js?v=20260520-3";
 
 const storageKey = "presupuesto-hogar:v1";
 const activeProfileKey = "presupuesto-hogar:active-profile";
@@ -207,6 +207,7 @@ const elements = {
   investmentRate: document.querySelector("#investmentRate"),
   monthlyContributionField: document.querySelector("#monthlyContributionField"),
   investmentMonthlyContribution: document.querySelector("#investmentMonthlyContribution"),
+  investmentFirstContributionDate: document.querySelector("#investmentFirstContributionDate"),
   extraContributionSection: document.querySelector("#extraContributionSection"),
   extraContributionDate: document.querySelector("#extraContributionDate"),
   extraContributionAmount: document.querySelector("#extraContributionAmount"),
@@ -397,6 +398,10 @@ elements.investmentForm.addEventListener("submit", (event) => {
     principal: Number(elements.investmentPrincipal.value),
     rate: Number(elements.investmentRate.value),
     monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    firstContributionDate:
+      elements.investmentProductType.value === "programmed_savings"
+        ? elements.investmentFirstContributionDate.value
+        : "",
     extraContributions: elements.investmentProductType.value === "programmed_savings" ? currentExtraContributions : [],
     expectedInterest: Number(elements.investmentExpectedInterest.value || 0),
     expectedInterestManual: investmentInterestEdited,
@@ -407,19 +412,50 @@ elements.investmentForm.addEventListener("submit", (event) => {
   };
   const dateValidation = validateDateWindow(investment.startDate, investment.endDate);
 
-  if (!investment.alias || !investment.bank || !investment.name || investment.principal <= 0) return;
+  if (!investment.alias || !investment.bank || !investment.name) return;
+  if (investment.productType === "programmed_savings") {
+    if (!Number.isFinite(investment.principal) || investment.principal < 0) {
+      elements.investmentPrincipal.setCustomValidity("El monto inicial no puede ser negativo.");
+      elements.investmentPrincipal.reportValidity();
+      return;
+    }
+  } else if (!Number.isFinite(investment.principal) || investment.principal <= 0) {
+    elements.investmentPrincipal.setCustomValidity("Ingresa un monto mayor a cero.");
+    elements.investmentPrincipal.reportValidity();
+    return;
+  }
+  elements.investmentPrincipal.setCustomValidity("");
   if (!Number.isFinite(investment.expectedInterest) || investment.expectedInterest < 0) {
     elements.investmentExpectedInterest.setCustomValidity("Ingresa un interes valido.");
     elements.investmentExpectedInterest.reportValidity();
     return;
   }
   elements.investmentExpectedInterest.setCustomValidity("");
+  if (!dateValidation.valid) {
+    elements.investmentEndDate.setCustomValidity(dateValidation.message);
+    elements.investmentEndDate.reportValidity();
+    return;
+  }
+  elements.investmentEndDate.setCustomValidity("");
   if (investment.productType === "programmed_savings" && investment.monthlyContribution <= 0) {
     elements.investmentMonthlyContribution.setCustomValidity("Ingresa el monto mensual que se abonara.");
     elements.investmentMonthlyContribution.reportValidity();
     return;
   }
   elements.investmentMonthlyContribution.setCustomValidity("");
+  if (investment.productType === "programmed_savings") {
+    const firstContributionValidation = validateFirstContributionDate(
+      investment.firstContributionDate,
+      investment.startDate,
+      investment.endDate
+    );
+    if (!firstContributionValidation.valid) {
+      elements.investmentFirstContributionDate.setCustomValidity(firstContributionValidation.message);
+      elements.investmentFirstContributionDate.reportValidity();
+      return;
+    }
+  }
+  elements.investmentFirstContributionDate.setCustomValidity("");
   const invalidExtraContribution = investment.extraContributions.find(
     (contribution) => contribution.date < investment.startDate || contribution.date > investment.endDate
   );
@@ -429,30 +465,27 @@ elements.investmentForm.addEventListener("submit", (event) => {
     return;
   }
   elements.extraContributionDate.setCustomValidity("");
-  if (!dateValidation.valid) {
-    elements.investmentEndDate.setCustomValidity(dateValidation.message);
-    elements.investmentEndDate.reportValidity();
-    return;
-  }
-  elements.investmentEndDate.setCustomValidity("");
 
   upsert(state.investments, investment);
   resetInvestmentForm();
   persist();
   render();
+  showGoalToast("Inversion guardada correctamente.");
 });
 
 elements.cancelInvestmentEdit.addEventListener("click", resetInvestmentForm);
 elements.investmentStartDate.addEventListener("change", () => {
   clearInvestmentDateValidation();
+  updateDefaultFirstContributionDate({ force: true });
   updateInvestmentExpectedInterest();
 });
 elements.investmentEndDate.addEventListener("change", () => {
   clearInvestmentDateValidation();
+  elements.investmentFirstContributionDate.setCustomValidity("");
   updateInvestmentExpectedInterest();
 });
 elements.investmentProductType.addEventListener("change", () => {
-  updateInvestmentProductFields();
+  updateInvestmentProductFields({ forceFirstContributionDate: true });
   updateInvestmentExpectedInterest();
 });
 elements.addExtraContribution.addEventListener("click", addExtraContribution);
@@ -460,6 +493,7 @@ elements.addExtraContribution.addEventListener("click", addExtraContribution);
   elements.investmentPrincipal,
   elements.investmentRate,
   elements.investmentMonthlyContribution,
+  elements.investmentFirstContributionDate,
   elements.investmentRatePeriod,
   elements.investmentInterestType
 ].forEach((input) => {
@@ -469,6 +503,9 @@ elements.addExtraContribution.addEventListener("click", addExtraContribution);
 elements.investmentExpectedInterest.addEventListener("input", () => {
   investmentInterestEdited = true;
   elements.investmentExpectedInterest.setCustomValidity("");
+});
+elements.investmentFirstContributionDate.addEventListener("input", () => {
+  elements.investmentFirstContributionDate.setCustomValidity("");
 });
 elements.investmentMonthFilter.addEventListener("input", renderInvestments);
 elements.investmentNameFilter.addEventListener("input", renderInvestments);
@@ -1819,7 +1856,7 @@ function renderInvestments() {
       </dl>
       ${
         result.totalContributions > 0
-          ? `<p class="saving-result">Aporte mensual: ${currency(result.monthlyContribution)} · Aportes extra: ${currency(result.totalExtraContributions)} · Total aportado: ${currency(result.totalContributions)}</p>`
+          ? `<p class="saving-result">Aporte mensual: ${currency(result.monthlyContribution)}${result.monthlyContribution > 0 && result.firstContributionDate ? ` · Primer aporte: ${formatDate(result.firstContributionDate)}` : ""} · Aportes extra: ${currency(result.totalExtraContributions)} · Total aportado: ${currency(result.totalContributions)}</p>`
           : ""
       }
       ${
@@ -2050,6 +2087,7 @@ function editInvestment(id) {
   elements.investmentPrincipal.value = investment.principal;
   elements.investmentRate.value = investment.rate;
   elements.investmentMonthlyContribution.value = investment.monthlyContribution || "";
+  elements.investmentFirstContributionDate.value = investment.firstContributionDate || nextMonthlyDate(investment.startDate);
   currentExtraContributions = normalizeExtraContributions(investment.extraContributions);
   renderExtraContributions();
   elements.investmentExpectedInterest.value = investment.expectedInterest ?? calculateInvestment(investment).interest.toFixed(2);
@@ -2121,7 +2159,9 @@ function resetInvestmentForm() {
   elements.investmentForm.reset();
   elements.investmentId.value = "";
   clearInvestmentDateValidation();
+  elements.investmentPrincipal.setCustomValidity("");
   elements.investmentMonthlyContribution.setCustomValidity("");
+  elements.investmentFirstContributionDate.setCustomValidity("");
   elements.investmentProductType.value = "policy";
   elements.investmentMonthlyContribution.value = "";
   currentExtraContributions = [];
@@ -2132,6 +2172,7 @@ function resetInvestmentForm() {
   elements.investmentInterestType.value = "simple";
   elements.investmentStartDate.value = todayIso();
   elements.investmentEndDate.value = todayIso();
+  elements.investmentFirstContributionDate.value = nextMonthlyDate(todayIso());
   elements.extraContributionDate.value = todayIso();
   elements.extraContributionAmount.value = "";
   elements.extraContributionNote.value = "";
@@ -2158,14 +2199,18 @@ function clearReceivableDateValidation() {
 
 function clearInvestmentDateValidation() {
   elements.investmentEndDate.setCustomValidity("");
+  elements.investmentFirstContributionDate.setCustomValidity("");
 }
 
-function updateInvestmentProductFields() {
+function updateInvestmentProductFields(options = {}) {
   const isProgrammedSavings = elements.investmentProductType.value === "programmed_savings";
   elements.monthlyContributionField.classList.toggle("is-hidden", !isProgrammedSavings);
   elements.extraContributionSection.classList.toggle("is-hidden", !isProgrammedSavings);
   elements.investmentMonthlyContribution.required = isProgrammedSavings;
+  elements.investmentFirstContributionDate.required = isProgrammedSavings;
   elements.investmentMonthlyContribution.setCustomValidity("");
+  elements.investmentFirstContributionDate.setCustomValidity("");
+  updateDefaultFirstContributionDate({ force: options.forceFirstContributionDate });
   elements.extraContributionDate.value = elements.extraContributionDate.value || elements.investmentStartDate.value || todayIso();
   if (!isProgrammedSavings) {
     currentExtraContributions = [];
@@ -2185,6 +2230,7 @@ function updateInvestmentExpectedInterest(options = {}) {
     principal: Number(elements.investmentPrincipal.value || 0),
     rate: Number(elements.investmentRate.value || 0),
     monthlyContribution: Number(elements.investmentMonthlyContribution.value || 0),
+    firstContributionDate: elements.investmentFirstContributionDate.value,
     extraContributions: currentExtraContributions,
     ratePeriod: elements.investmentRatePeriod.value,
     interestType: elements.investmentInterestType.value,
@@ -2596,6 +2642,44 @@ function formatDate(date) {
     month: "short",
     year: "numeric"
   });
+}
+
+function validateFirstContributionDate(firstContributionDate, startDate, endDate) {
+  if (!firstContributionDate) {
+    return { valid: false, message: "Ingresa la fecha del primer abono mensual." };
+  }
+
+  if (firstContributionDate < startDate) {
+    return { valid: false, message: "El primer abono no puede ser antes de abrir la cuenta." };
+  }
+
+  if (firstContributionDate > endDate) {
+    return { valid: false, message: "El primer abono debe estar dentro del plazo de la inversion." };
+  }
+
+  return { valid: true, message: "" };
+}
+
+function updateDefaultFirstContributionDate(options = {}) {
+  if (elements.investmentProductType.value !== "programmed_savings") return;
+  if (!options.force && elements.investmentFirstContributionDate.value) return;
+
+  elements.investmentFirstContributionDate.value = nextMonthlyDate(elements.investmentStartDate.value || todayIso());
+}
+
+function nextMonthlyDate(date) {
+  const value = new Date(`${date || todayIso()}T00:00:00`);
+  if (Number.isNaN(value.getTime())) return todayIso();
+  return toIsoDate(addMonthsClamped(value, 1));
+}
+
+function addMonthsClamped(date, months) {
+  const target = new Date(date);
+  const day = target.getDate();
+  target.setDate(1);
+  target.setMonth(target.getMonth() + months);
+  target.setDate(Math.min(day, new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate()));
+  return target;
 }
 
 function toIsoDate(date) {

@@ -238,7 +238,11 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
   const end = new Date(`${investment.endDate}T00:00:00`);
   const now = new Date(`${currentDate}T00:00:00`);
 
-  if (principal <= 0 || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return emptyInvestmentResult(principal);
+  }
+
+  if (productType === "programmed_savings" ? principal < 0 : principal <= 0) {
     return emptyInvestmentResult(principal);
   }
 
@@ -246,9 +250,10 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
   const years = days / 365;
   const annualRate = investment.ratePeriod === "monthly" ? rate * 12 : rate;
   const monthlyRate = investment.ratePeriod === "monthly" ? rate : rate / 12;
-  const months = Math.max(monthsBetween(start, end), 1);
+  const periodMonths = Math.max(monthsBetween(start, end), 1);
   const dailyRate = annualRate / 365;
   const extraContributions = normalizeExtraContributions(investment.extraContributions, start, end);
+  const firstContributionDate = resolveFirstContributionDate(investment.firstContributionDate, start, end);
   const productResult = calculateInvestmentByProduct({
     productType,
     principal,
@@ -257,9 +262,10 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     dailyRate,
     years,
     days,
-    months,
+    months: periodMonths,
     monthlyContribution,
     extraContributions,
+    firstContributionDate,
     start,
     end
   });
@@ -279,8 +285,9 @@ export function calculateInvestment(investment, currentDate = todayIso()) {
     annualRate,
     monthlyRate,
     days,
-    months,
+    months: productResult.months ?? periodMonths,
     monthlyContribution,
+    firstContributionDate: productResult.firstContributionDate ?? (firstContributionDate ? toIso(firstContributionDate) : ""),
     totalMonthlyContributions: productResult.totalMonthlyContributions,
     totalExtraContributions: productResult.totalExtraContributions,
     totalContributions: productResult.totalContributions,
@@ -406,7 +413,7 @@ function calculateProgrammedSavings(input) {
   let balance = input.principal;
   let totalMonthlyContributions = 0;
   let totalExtraContributions = 0;
-  const monthlyContributionDates = new Set(recurringMonthlyDates(input.start, input.end, input.months));
+  const monthlyContributionDates = new Set(recurringMonthlyDates(input.firstContributionDate, input.end));
   const extraContributionMap = groupExtraContributions(input.extraContributions);
   const cursor = new Date(input.start);
 
@@ -433,6 +440,8 @@ function calculateProgrammedSavings(input) {
 
   return {
     finalAmount: balance,
+    months: monthlyContributionDates.size,
+    firstContributionDate: input.firstContributionDate ? toIso(input.firstContributionDate) : "",
     totalMonthlyContributions,
     totalExtraContributions,
     totalContributions: totalMonthlyContributions + totalExtraContributions,
@@ -440,18 +449,33 @@ function calculateProgrammedSavings(input) {
   };
 }
 
-function recurringMonthlyDates(start, end, months) {
+function recurringMonthlyDates(firstContributionDate, end) {
   const dates = [];
 
-  for (let month = 0; month < months; month += 1) {
-    const date = new Date(start);
-    date.setMonth(start.getMonth() + month);
+  if (!firstContributionDate || Number.isNaN(firstContributionDate.getTime())) {
+    return dates;
+  }
+
+  for (let month = 0; month < 600; month += 1) {
+    const date = addMonthsClamped(firstContributionDate, month);
     if (date <= end) {
       dates.push(toIso(date));
+    } else {
+      break;
     }
   }
 
   return dates;
+}
+
+function resolveFirstContributionDate(firstContributionDate, start, end) {
+  const provided = new Date(`${firstContributionDate || ""}T00:00:00`);
+  if (!Number.isNaN(provided.getTime()) && provided >= start && provided <= end) {
+    return provided;
+  }
+
+  const nextMonth = addMonthsClamped(start, 1);
+  return nextMonth <= end ? nextMonth : null;
 }
 
 function groupExtraContributions(extraContributions) {
@@ -489,6 +513,7 @@ function emptyInvestmentResult(principal) {
     monthlyRate: 0,
     days: 0,
     months: 1,
+    firstContributionDate: "",
     finalAmount: principal,
     interest: 0,
     calculatedInterest: 0,
@@ -502,6 +527,15 @@ function emptyInvestmentResult(principal) {
 
 function lastDayOfMonth(date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+function addMonthsClamped(date, months) {
+  const target = new Date(date);
+  const day = target.getDate();
+  target.setDate(1);
+  target.setMonth(target.getMonth() + months);
+  target.setDate(Math.min(day, lastDayOfMonth(target)));
+  return target;
 }
 
 function toIso(date) {
