@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Presupuesto Hogar" />
     <title>Presupuesto Hogar</title>
-    <link rel="stylesheet" href="./src/styles.css?v=20260518-1" />
+    <link rel="stylesheet" href="./src/styles.css?v=20260520-2" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./assets/icon.svg" />
@@ -248,9 +248,25 @@
         <section id="dailyBudgetCard" class="daily-budget-card" aria-label="Presupuesto diario sugerido">
           <div>
             <p class="eyebrow">Presupuesto diario equitativo</p>
-            <p>Para mantener la estabilidad hasta fin de periodo, tu limite sugerido es:</p>
+            <p id="dailyBudgetMessage">El plan de hoy se mantiene fijo y se descuenta con tus gastos del dia.</p>
           </div>
-          <strong><span id="dailyBudgetAmount">$0.00</span><small>por dia</small></strong>
+          <div class="daily-budget-summary">
+            <strong><span id="dailyBudgetAmount">$0.00</span><small>plan de hoy</small></strong>
+            <dl class="daily-budget-facts">
+              <div>
+                <dt>Gastado hoy</dt>
+                <dd id="dailyBudgetSpent">$0.00</dd>
+              </div>
+              <div>
+                <dt id="dailyBudgetRemainingLabel">Te queda hoy</dt>
+                <dd id="dailyBudgetRemaining">$0.00</dd>
+              </div>
+              <div>
+                <dt>Desde manana</dt>
+                <dd id="dailyBudgetTomorrow">$0.00</dd>
+              </div>
+            </dl>
+          </div>
         </section>
 
         <section class="workspace budget-entry-grid">
@@ -926,6 +942,6 @@
       </div>
     </template>
 
-    <script type="module" src="./src/app.js?v=20260518-1"></script>
+    <script type="module" src="./src/app.js?v=20260520-2"></script>
   </body>
 </html>

@@ -53,6 +53,28 @@ const tests = [
     }
   },
   {
+    name: "mantiene plan diario fijo y descuenta gastos de hoy",
+    run() {
+      const range = getPeriodRange("2026-05-14", "monthly");
+      const progress = calculateBudgetProgress(
+        { income: 1000, expense: 200 },
+        range,
+        "2026-05-14",
+        [
+          { kind: "expense", category: "unique", amount: 10, date: "2026-05-14" },
+          { kind: "expense", category: "fixed", fixedSource: true, amount: 80, date: "2026-05-14" },
+          { kind: "expense", category: "unique", amount: 15, date: "2026-05-13" }
+        ]
+      );
+
+      assert.equal(progress.todayExpense, 10);
+      assert.equal(Math.round(progress.dailyAvailable * 100) / 100, 45);
+      assert.equal(Math.round(progress.todayRemaining * 100) / 100, 35);
+      assert.equal(progress.todayOverspend, 0);
+      assert.equal(Math.round(progress.tomorrowDailyAvailable * 100) / 100, 47.06);
+    }
+  },
+  {
     name: "marca presupuesto excedido cuando gastos superan ingresos",
     run() {
       const range = getPeriodRange("2026-05-14", "monthly");

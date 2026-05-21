@@ -114,7 +114,7 @@ export function summarizeTransactionsByCategory(transactions, range, kind, categ
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function calculateBudgetProgress(totals, range, currentDate = todayIso()) {
+export function calculateBudgetProgress(totals, range, currentDate = todayIso(), transactions = []) {
   const income = Number(totals.income) || 0;
   const expense = Number(totals.expense) || 0;
   const remaining = income - expense;
@@ -126,7 +126,16 @@ export function calculateBudgetProgress(totals, range, currentDate = todayIso())
   const end = new Date(`${range.end}T00:00:00`);
   const remainingBaseDate = today < start ? start : today;
   const daysRemaining = today > end ? 0 : Math.max(daysBetween(remainingBaseDate, end) + 1, 0);
-  const dailyAvailable = daysRemaining > 0 ? Math.max(remaining, 0) / daysRemaining : Math.max(remaining, 0);
+  const futureDaysRemaining = Math.max(daysRemaining - 1, 0);
+  const todayExpense = currentDate >= range.start && currentDate <= range.end
+    ? calculateManualExpenseForDate(transactions, currentDate)
+    : 0;
+  const dailyPlanBase = Math.max(remaining + todayExpense, 0);
+  const dailyAvailable = daysRemaining > 0 ? dailyPlanBase / daysRemaining : Math.max(remaining, 0);
+  const todayRemaining = Math.max(dailyAvailable - todayExpense, 0);
+  const todayOverspend = Math.max(todayExpense - dailyAvailable, 0);
+  const tomorrowDailyAvailable =
+    futureDaysRemaining > 0 ? Math.max(remaining, 0) / futureDaysRemaining : Math.max(remaining, 0);
 
   return {
     income,
@@ -135,7 +144,12 @@ export function calculateBudgetProgress(totals, range, currentDate = todayIso())
     usagePercent,
     cappedUsagePercent,
     daysRemaining,
+    futureDaysRemaining,
     dailyAvailable,
+    todayExpense,
+    todayRemaining,
+    todayOverspend,
+    tomorrowDailyAvailable,
     isOverBudget,
     statusText:
       isOverBudget
@@ -144,6 +158,14 @@ export function calculateBudgetProgress(totals, range, currentDate = todayIso())
           ? "Registra ingresos para calcular tu presupuesto."
           : "En buen camino."
   };
+}
+
+function calculateManualExpenseForDate(transactions, date) {
+  return transactions
+    .filter((transaction) => {
+      return transaction.kind === "expense" && transaction.date === date && !transaction.fixedSource;
+    })
+    .reduce((total, transaction) => total + (Number(transaction.amount) || 0), 0);
 }
 
 export function generateFixedTransactions(fixedItems, range) {

@@ -3,7 +3,7 @@ import {
   calculateSavingsPlan,
   calculateTotals,
   generateFixedTransactions
-} from "./finance.js";
+} from "./finance.js?v=20260520-2";
 
 export function calculateSafetyNet(monthlyRequiredExpenses, safetyMonths) {
   return Math.max(monthlyRequiredExpenses, 0) * Math.max(Number(safetyMonths) || 0, 0);

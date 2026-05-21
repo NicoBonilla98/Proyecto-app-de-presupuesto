@@ -16,10 +16,10 @@ import {
   summarizeInvestments,
   todayIso,
   validateDateWindow
-} from "./finance.js";
-import { createId } from "./ids.js";
-import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js";
-import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js";
+} from "./finance.js?v=20260520-2";
+import { createId } from "./ids.js?v=20260520-2";
+import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js?v=20260520-2";
+import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js?v=20260520-2";
 
 const storageKey = "presupuesto-hogar:v1";
 const activeProfileKey = "presupuesto-hogar:active-profile";
@@ -143,7 +143,12 @@ const elements = {
   budgetRemainingStatus: document.querySelector("#budgetRemainingStatus"),
   budgetDaysRemaining: document.querySelector("#budgetDaysRemaining"),
   dailyBudgetCard: document.querySelector("#dailyBudgetCard"),
+  dailyBudgetMessage: document.querySelector("#dailyBudgetMessage"),
   dailyBudgetAmount: document.querySelector("#dailyBudgetAmount"),
+  dailyBudgetSpent: document.querySelector("#dailyBudgetSpent"),
+  dailyBudgetRemainingLabel: document.querySelector("#dailyBudgetRemainingLabel"),
+  dailyBudgetRemaining: document.querySelector("#dailyBudgetRemaining"),
+  dailyBudgetTomorrow: document.querySelector("#dailyBudgetTomorrow"),
   liquidityForm: document.querySelector("#liquidityForm"),
   availableCash: document.querySelector("#availableCash"),
   projectionMonths: document.querySelector("#projectionMonths"),
@@ -563,7 +568,7 @@ function render() {
 
   renderDashboard(dashboardRange, dashboardTransactions, dashboardTotals, dashboardCompareRange);
   renderBudgetPeriodLists(range, budgetTransactions);
-  renderBudgetProgress(totals, range);
+  renderBudgetProgress(totals, range, budgetTransactions);
   renderBudgetHealth(totals);
   renderGoals();
   renderReceivables();
@@ -733,8 +738,8 @@ function renderBudgetHealth(totals) {
   elements.budgetHealthAmount.textContent = currency(Math.abs(savings));
 }
 
-function renderBudgetProgress(totals, range) {
-  const progress = calculateBudgetProgress(totals, range, todayIso());
+function renderBudgetProgress(totals, range, budgetTransactions) {
+  const progress = calculateBudgetProgress(totals, range, todayIso(), budgetTransactions);
 
   elements.budgetSpentAmount.textContent = currency(progress.expense);
   elements.budgetSpentCaption.textContent = `gastados de ${currency(progress.income)}`;
@@ -744,10 +749,37 @@ function renderBudgetProgress(totals, range) {
   elements.budgetRemainingStatus.textContent = progress.statusText;
   elements.budgetDaysRemaining.textContent = progress.daysRemaining;
   elements.dailyBudgetAmount.textContent = currency(progress.dailyAvailable);
+  elements.dailyBudgetSpent.textContent = currency(progress.todayExpense);
+  elements.dailyBudgetRemainingLabel.textContent = progress.todayOverspend > 0 ? "Exceso de hoy" : "Te queda hoy";
+  elements.dailyBudgetRemaining.textContent = currency(
+    progress.todayOverspend > 0 ? progress.todayOverspend : progress.todayRemaining
+  );
+  elements.dailyBudgetTomorrow.textContent = currency(progress.tomorrowDailyAvailable);
+  elements.dailyBudgetMessage.textContent = dailyBudgetMessage(progress);
 
   elements.budgetProgressCard.classList.toggle("danger", progress.isOverBudget);
   elements.budgetRemainingCard.classList.toggle("danger", progress.isOverBudget);
-  elements.dailyBudgetCard.classList.toggle("danger", progress.isOverBudget);
+  elements.dailyBudgetCard.classList.toggle("danger", progress.isOverBudget || progress.todayOverspend > 0);
+}
+
+function dailyBudgetMessage(progress) {
+  if (progress.income <= 0) {
+    return "Registra ingresos para calcular un presupuesto diario realista.";
+  }
+
+  if (progress.daysRemaining <= 0) {
+    return "El periodo termino. Cambia de periodo para ver una nueva recomendacion diaria.";
+  }
+
+  if (progress.todayOverspend > 0) {
+    return `Hoy superaste tu plan por ${currency(progress.todayOverspend)}. Desde manana el estimado baja o se ajusta a ${currency(progress.tomorrowDailyAvailable)} por dia.`;
+  }
+
+  if (progress.todayExpense > 0) {
+    return `Has usado ${currency(progress.todayExpense)} de tu plan de hoy. Te quedan ${currency(progress.todayRemaining)} para mantener el ritmo.`;
+  }
+
+  return "El plan de hoy se mantiene fijo; cada gasto del dia se descuenta de lo disponible para hoy.";
 }
 
 function renderDashboard(range, budgetTransactions, totals, compareRange) {
