@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, rmSync, copyFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, rmSync, copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(".");
@@ -19,5 +19,10 @@ for (const directory of directories) {
 for (const file of files) {
   copyFileSync(join(root, file), join(dist, file));
 }
+
+const indexPath = join(dist, "index.html");
+const mobileMarker = "    <meta name=\"presupuesto-mobile-app\" content=\"true\" />\n";
+const indexHtml = readFileSync(indexPath, "utf8");
+writeFileSync(indexPath, indexHtml.replace("  </head>", `${mobileMarker}  </head>`));
 
 console.log("Mobile web assets copied to dist/");

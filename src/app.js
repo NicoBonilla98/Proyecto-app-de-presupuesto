@@ -16,10 +16,10 @@ import {
   summarizeInvestments,
   todayIso,
   validateDateWindow
-} from "./finance.js?v=20260520-3";
-import { createId } from "./ids.js?v=20260520-3";
-import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js?v=20260520-3";
-import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js?v=20260520-3";
+} from "./finance.js?v=20260520-4";
+import { createId } from "./ids.js?v=20260520-4";
+import { calculateInvestmentCapacity, evaluatePurchaseAffordability } from "./liquidity.js?v=20260520-4";
+import { hasAllSharedRecords, hasStoredRecords, mergeStateCopies, stateFingerprint } from "./state-sync.js?v=20260520-4";
 
 const storageKey = "presupuesto-hogar:v1";
 const activeProfileKey = "presupuesto-hogar:active-profile";
@@ -32,6 +32,8 @@ const householdProfiles = [
   { value: "emilio", label: "Emilio" }
 ];
 const defaultProfileId = "nicolas";
+const mobileRestrictedProfileId = "nicolas";
+const mobileAllowedTabs = new Set(["dashboardTab", "budgetTab", "receivablesTab"]);
 const profileMigrationDefaults = {
   transactions: "nicolas",
   fixedItems: "nicolas",
@@ -73,12 +75,14 @@ const elements = {
   tabPanels: document.querySelectorAll(".tab-panel"),
   syncStatus: document.querySelector("#syncStatus"),
   profileSelect: document.querySelector("#profileSelect"),
+  profileControl: document.querySelector("#profileSelect")?.closest(".profile-control"),
   periodSelect: document.querySelector("#periodSelect"),
   periodRangeLabel: document.querySelector("#periodRangeLabel"),
   dashboardMonth: document.querySelector("#dashboardMonth"),
   dashboardCompareMonth: document.querySelector("#dashboardCompareMonth"),
   dashboardSavingsAccounts: document.querySelector("#dashboardSavingsAccounts"),
   dashboardPolicies: document.querySelector("#dashboardPolicies"),
+  dashboardPoliciesCard: document.querySelector("#dashboardPolicies")?.closest(".metric"),
   dashboardIncome: document.querySelector("#dashboardIncome"),
   dashboardExpenses: document.querySelector("#dashboardExpenses"),
   dashboardGoals: document.querySelector("#dashboardGoals"),
@@ -246,7 +250,9 @@ elements.investmentEndDate.value = todayIso();
 elements.extraContributionDate.value = todayIso();
 elements.dashboardMonth.value = dashboardState.month;
 elements.dashboardCompareMonth.value = dashboardState.compareMonth;
+enforceMobileProfile();
 syncControlsFromState();
+applyMobileAccessPolicy();
 
 updateBudgetFormFields("income");
 updateBudgetFormFields("expense");
@@ -517,12 +523,21 @@ elements.calendarMonthSelect.addEventListener("change", updateCalendarFromContro
 elements.calendarYearInput.addEventListener("change", updateCalendarFromControls);
 
 function activateTab(tabId) {
+  const targetTabId = mobileAccessibleTabId(tabId);
   elements.tabButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.tabTarget === tabId);
+    button.classList.toggle("active", button.dataset.tabTarget === targetTabId);
   });
   elements.tabPanels.forEach((panel) => {
-    panel.classList.toggle("active", panel.id === tabId);
+    panel.classList.toggle("active", panel.id === targetTabId);
   });
+}
+
+function mobileAccessibleTabId(tabId) {
+  if (isMobileRestrictedApp() && !mobileAllowedTabs.has(tabId)) {
+    return "dashboardTab";
+  }
+
+  return tabId;
 }
 
 function registerServiceWorker() {
@@ -540,9 +555,43 @@ function currentProfileId() {
 }
 
 function setActiveProfile(profileId) {
-  state.activeProfileId = normalizeProfileId(profileId);
+  state.activeProfileId = isMobileRestrictedApp() ? mobileRestrictedProfileId : normalizeProfileId(profileId);
   localStorage.setItem(activeProfileKey, state.activeProfileId);
   state.liquiditySettings = currentLiquiditySettings();
+}
+
+function enforceMobileProfile() {
+  if (!isMobileRestrictedApp()) return;
+
+  state.activeProfileId = mobileRestrictedProfileId;
+  localStorage.setItem(activeProfileKey, mobileRestrictedProfileId);
+}
+
+function applyMobileAccessPolicy() {
+  const restricted = isMobileRestrictedApp();
+  document.body.classList.toggle("mobile-restricted-app", restricted);
+
+  elements.tabButtons.forEach((button) => {
+    button.hidden = restricted && !mobileAllowedTabs.has(button.dataset.tabTarget);
+  });
+  elements.tabPanels.forEach((panel) => {
+    panel.hidden = restricted && !mobileAllowedTabs.has(panel.id);
+  });
+
+  if (restricted && !mobileAllowedTabs.has(document.querySelector(".tab-panel.active")?.id)) {
+    activateTab("dashboardTab");
+  }
+
+  if (elements.profileSelect) {
+    elements.profileSelect.disabled = restricted;
+    elements.profileSelect.value = restricted ? mobileRestrictedProfileId : currentProfileId();
+  }
+  if (elements.profileControl) {
+    elements.profileControl.hidden = restricted;
+  }
+  if (elements.dashboardPoliciesCard) {
+    elements.dashboardPoliciesCard.hidden = restricted;
+  }
 }
 
 function normalizeProfileId(profileId) {
@@ -607,12 +656,30 @@ function render() {
   renderBudgetPeriodLists(range, budgetTransactions);
   renderBudgetProgress(totals, range, budgetTransactions);
   renderBudgetHealth(totals);
-  renderGoals();
   renderReceivables();
+  if (isMobileRestrictedApp()) {
+    clearRestrictedMobileViews();
+    scheduleReceivableNotifications();
+    return;
+  }
+
+  renderGoals();
   renderInvestments();
   renderCalendar();
   renderLiquidityCapacity();
   scheduleReceivableNotifications();
+}
+
+function clearRestrictedMobileViews() {
+  elements.goalList?.replaceChildren();
+  elements.investmentAlerts?.replaceChildren();
+  elements.investmentList?.replaceChildren();
+  elements.calendarGrid?.replaceChildren();
+  elements.liquidityProjectionList?.replaceChildren();
+  elements.investmentPrincipalTotal.textContent = currency(0);
+  elements.investmentFinalTotal.textContent = currency(0);
+  elements.investmentInterestTotal.textContent = currency(0);
+  elements.nextInvestmentDue.textContent = "Sin acceso en la app";
 }
 
 function changeCalendarMonth(direction) {
@@ -820,7 +887,7 @@ function dailyBudgetMessage(progress) {
 }
 
 function renderDashboard(range, budgetTransactions, totals, compareRange) {
-  const investments = profileInvestments();
+  const investments = dashboardVisibleInvestments();
   const goals = profileGoals();
   const investmentRows = investments.map((investment) => ({
     investment,
@@ -879,6 +946,13 @@ function renderDashboard(range, budgetTransactions, totals, compareRange) {
   renderDashboardGoals();
   renderDashboardTip(totals, goalsTarget, goalsSaved, investmentRows);
   renderDashboardAlerts(`${dashboardState.month}-01`);
+}
+
+function dashboardVisibleInvestments() {
+  const investments = profileInvestments();
+  if (!isMobileRestrictedApp()) return investments;
+
+  return investments.filter((investment) => (investment.productType || "policy") !== "policy");
 }
 
 function renderDashboardCategoryRows(container, rows, total, tone, compareRows = []) {
@@ -1126,6 +1200,10 @@ function buildExpenseChangeAlerts(currentDate) {
 }
 
 function buildPolicyRenewalAlerts(currentDate) {
+  if (isMobileRestrictedApp()) {
+    return [];
+  }
+
   return profileInvestments()
     .filter((investment) => investmentNeedsRenewalAlert(investment, currentDate))
     .sort((a, b) => a.endDate.localeCompare(b.endDate))
@@ -2520,6 +2598,8 @@ function currentLiquiditySettings() {
 }
 
 function getStoredActiveProfileId() {
+  if (isMobileRestrictedApp()) return mobileRestrictedProfileId;
+
   return normalizeProfileId(localStorage.getItem(activeProfileKey) || defaultProfileId);
 }
 
@@ -2895,18 +2975,17 @@ function getSyncServerUrl() {
   return isMobileAppShell() ? defaultMobileSyncServerUrl : "";
 }
 
-function isMobileAppShell() {
-  const isCapacitorLocalhost =
-    window.location.hostname === "localhost" &&
-    !window.location.port &&
-    (window.location.protocol === "https:" || window.location.protocol === "http:");
+function isMobileRestrictedApp() {
+  return isMobileAppShell();
+}
 
+function isMobileAppShell() {
   return Boolean(
-    window.Capacitor?.isNativePlatform?.() ||
+    document.querySelector('meta[name="presupuesto-mobile-app"]')?.content === "true" ||
+      window.Capacitor?.isNativePlatform?.() ||
       window.Capacitor?.getPlatform?.() === "android" ||
       window.location.protocol === "capacitor:" ||
-      window.location.protocol === "ionic:" ||
-      isCapacitorLocalhost
+      window.location.protocol === "ionic:"
   );
 }
 
@@ -3035,6 +3114,7 @@ function syncControlsFromState() {
     ...state,
     activeProfileId: getStoredActiveProfileId()
   }));
+  enforceMobileProfile();
   const settings = currentLiquiditySettings();
 
   elements.profileSelect.value = currentProfileId();
@@ -3044,4 +3124,5 @@ function syncControlsFromState() {
   elements.safetyMonths.value = settings.safetyMonths;
   elements.variableExpenseBuffer.value = settings.variableExpenseBuffer;
   elements.includeVariableIncome.checked = settings.includeVariableIncome;
+  applyMobileAccessPolicy();
 }
